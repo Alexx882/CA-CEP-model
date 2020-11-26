@@ -1,0 +1,8 @@
+**/.vscode
+**/venv
+
+# originally downloaded datasets from: (both contain the same csv)
+## https://www.kaggle.com/c/pkdd-15-predict-taxi-service-trajectory-i/data
+## https://www.kaggle.com/c/pkdd-15-taxi-trip-time-prediction-ii
+*.zip
+train.csv
