@@ -6,3 +6,6 @@
 ## https://www.kaggle.com/c/pkdd-15-taxi-trip-time-prediction-ii
 *.zip
 train.csv
+
+# clusters as received from the SMART pipeline
+clusters/
