@@ -15,7 +15,7 @@ class Cluster:
         self.variance = np.var(feature_values) if len(feature_values) > 0 else 0
         self.density = self._calculate_density(feature_values)
         
-        self.importance1 = float(len(cluster_nodes)) / nr_layer_nodes
+        self.importance1 = float(len(cluster_nodes)) / nr_layer_nodes if len(cluster_nodes) > 0 else 0
         self.importance2 = 1.0 / diversity if len(cluster_nodes) > 0 else 0
 
     def _calculate_density(self, feature_values):
@@ -26,6 +26,19 @@ class Cluster:
         range_ = max(feature_values) - min(feature_values)
         return float(range_) / len(feature_values)
 
+    def get_time_info(self) -> int:
+        '''Returns the week of the time tuple str, eg. 25 for "(2014, 25)".'''
+        str_tuple = self.time_window_id
+        return int(str_tuple.split(',')[1].strip()[:-1])
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+    def __str__(self):
+        return f"Cluster({self.cluster_id}, " \
+        f"{self.size}, {self.variance}, {self.density}, " \
+        f"{self.importance1}, {self.importance2})"
+
     @staticmethod
     def create_from_time_window(time_window: TimeWindow, cluster_feature: str) -> Iterable[Cluster]:
         total_layer_nodes = sum([len(nodes) for nodes in time_window.clusters.values()])
@@ -35,7 +48,8 @@ class Cluster:
         for cluster_nr, cluster_nodes in time_window.clusters.items():
             yield Cluster(time_window.time, cluster_nr, cluster_nodes, cluster_feature, total_layer_nodes, diversity)
 
-    def __str__(self):
-        return f"Cluster({self.cluster_id}, " \
-        f"{self.size}, {self.variance}, {self.density}, " \
-        f"{self.importance1}, {self.importance2})"
+    @staticmethod
+    def create_from_dict(dict_):
+        cl = Cluster(0, 0, [], 0, 0, 0)
+        cl.__dict__.update(dict_)
+        return cl
