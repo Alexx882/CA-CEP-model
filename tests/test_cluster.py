@@ -15,16 +15,16 @@ class TestCluster(unittest.TestCase):
     def test__init__single_cluster__all_values_set(self):
         tw = self._get_timewindow_single_cluster_same_feature()
 
-        c = Cluster("time_abc", "clusterId 1", list(tw.clusters.values())[0], "feature", nr_layer_nodes=3, diversity=1)
+        c = Cluster("time_abc", "clusterId 1", list(tw.clusters.values())[0], "feature", nr_layer_nodes=3, layer_diversity=1)
         
         self.assertEqual("time_abc", c.time_window_id)
         self.assertEqual("clusterId 1", c.cluster_id)
         self.assert_cluster((3, 0, 0, 1, 1), c)
 
-    def test__create_from_time_window__single_cluster__all_values_set(self):
+    def test__create_multiple_from_time_window__single_cluster__all_values_set(self):
         tw = self._get_timewindow_single_cluster_same_feature()
 
-        clusters = list(Cluster.create_from_time_window(tw, "feature"))
+        clusters = list(Cluster.create_multiple_from_time_window(tw, "feature"))
         self.assertEqual(1, len(clusters))
         c = clusters[0]
 
@@ -32,26 +32,35 @@ class TestCluster(unittest.TestCase):
         self.assertEqual("1", c.cluster_id)
         self.assert_cluster((3, 0, 0, 1, 1), c)
 
-    def test__create_from_time_window__two_clusters__correct_time_id_cluster_id(self):
+    def test__create_multiple_from_time_window__two_clusters__correct_time_id_cluster_id(self):
         tw = self._get_timewindow_two_clusters_same_feature()
 
-        clusters = Cluster.create_from_time_window(tw, "feature")
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
         expected = [("KW1", "1"), ("KW1", "2")]
 
         for c, exp in zip(clusters, expected):
             self.assertEqual(exp[0], c.time_window_id)
             self.assertEqual(exp[1], c.cluster_id)
 
-    def test__create_from_time_window__two_clusters__correct_calculation(self):
+    def test__create_multiple_from_time_window__two_clusters__correct_calculation(self):
         tw = self._get_timewindow_two_clusters_same_feature()
 
-        clusters = Cluster.create_from_time_window(tw, "feature")
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
         expected = [(3, 0, 0, 3/5, 1/2), (2, 0, 0, 2/5, 1/2)]
 
         for c, exp in zip(clusters, expected):
             self.assert_cluster(exp, c)
 
-    def test__create_from_time_window__two_clusters_different_features__correct_calculation(self):
+    def test__create_multiple_from_time_window__two_clusters_feature_names_list__correct_calculation(self):
+        tw = self._get_timewindow_two_clusters_same_feature()
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["feature"])
+        expected = [(3, 0, 0, 3/5, 1/2), (2, 0, 0, 2/5, 1/2)]
+
+        for c, exp in zip(clusters, expected):
+            self.assert_cluster(exp, c)
+
+    def test__create_multiple_from_time_window__two_clusters_different_features__correct_calculation(self):
         tw = TimeWindow("CW1", "uc", "uct", "ln")
         tw.add_node_to_cluster("1", {"feature":1})
         tw.add_node_to_cluster("1", {"feature":2})
@@ -59,14 +68,14 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"feature":70})
         tw.add_node_to_cluster("2", {"feature":75})
 
-        clusters = Cluster.create_from_time_window(tw, "feature")
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
         # variance calculated with: http://www.alcula.com/calculators/statistics/variance/
         expected = [(3, 2.0/3, 2.0/3, 3/5, 1/2), (2, 6.25, 5.0/2, 2/5, 1/2)]
 
         for cluster, exp in zip(clusters, expected):
             self.assert_cluster(exp, cluster)
 
-    def test__create_from_time_window__empty_cluster__all_zero(self):
+    def test__create_multiple_from_time_window__empty_cluster__all_zero(self):
         tw = TimeWindow("CW1", "uc", "uct", "ln")
         tw.add_node_to_cluster("1", {"feature":1})
         tw.add_node_to_cluster("1", {"feature":2})
@@ -75,7 +84,7 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"feature":75})
         tw.clusters["3"] = []
 
-        clusters = Cluster.create_from_time_window(tw, "feature")
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
         expected = [(3, 2.0/3, 2.0/3, 3/5, 1/2), # diversity is still 2 as len=0 is ignored
                     (2, 6.25, 5.0/2, 2/5, 1/2),
                     (0, 0, 0, 0, 0)] # len 0 -> everything 0
