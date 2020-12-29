@@ -15,7 +15,7 @@ class Cluster:
 
         self.size = metrics_calculator.get_size()
         self.variance = metrics_calculator.get_variance()
-        self.density = metrics_calculator.get_density()
+        self.scarcity = metrics_calculator.get_scarcity()
         
         self.importance1 = metrics_calculator.get_importance1()
         self.importance2 = metrics_calculator.get_importance2()
@@ -30,7 +30,7 @@ class Cluster:
 
     def __str__(self):
         return f"Cluster({self.cluster_id}, " \
-        f"{self.size}, {self.variance}, {self.density}, " \
+        f"{self.size}, {self.variance}, {self.scarcity}, " \
         f"{self.importance1}, {self.importance2})"
 
     @staticmethod

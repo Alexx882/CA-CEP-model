@@ -9,6 +9,8 @@ from entities import Cluster, TimeWindow
 from typing import Any, Tuple
 from datetime import date, datetime
 import json
+from math import sqrt
+import statistics as stat
 
 
 class TestCluster(unittest.TestCase):
@@ -92,6 +94,72 @@ class TestCluster(unittest.TestCase):
         for cluster, exp in zip(clusters, expected):
             self.assert_cluster(exp, cluster)
 
+    def test__create_multiple_from_time_window__2d_clustering_single_feature_value__no_variance_no_scarcity(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1, "f2":1})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":1})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":1})
+        tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+        tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+        expected = [(3, 0, 0, 3/5, 1/2), (2, 0, 0, 2/5, 1/2)]
+
+        for cluster, exp in zip(clusters, expected):
+            self.assert_cluster(exp, cluster)
+
+    def test__create_multiple_from_time_window__2d_clustering__correct_variance_and_scarcity(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1, "f2":1})
+        tw.add_node_to_cluster("1", {"f1":2, "f2":1})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":3})
+        tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+        tw.add_node_to_cluster("2", {"f1":72, "f2":75})
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+        # variance calculated manually as in: https://glenbambrick.com/tag/standard-distance/
+        # area of the polygon calculated with: https://www.mathopenref.com/coordpolygonareacalc.html
+        expected = [(3, sqrt(2/9+8/9), sqrt(1/3), 3/5, 1/2), (2, sqrt(7.25), sqrt(2*2+5*5)/2, 2/5, 1/2)] 
+
+        for cluster, exp in zip(clusters, expected):
+            self.assert_cluster(exp, cluster)
+
+            
+    def test__create_multiple_from_time_window__2d_clustering_complex__correct_variance_and_scarcity(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":0, "f2":0})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":3})
+        tw.add_node_to_cluster("1", {"f1":3, "f2":2})
+        tw.add_node_to_cluster("1", {"f1":0, "f2":2})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2}) # inside the convex hull
+        tw.add_node_to_cluster("1", {"f1":2, "f2":2}) # inside the convex hull
+        tw.add_node_to_cluster("1", {"f1":2, "f2":1})
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+
+        # variance calculated manually as in: https://glenbambrick.com/tag/standard-distance/
+        X = [0,1,3,0,1,2,2]
+        Y = [0,3,2,2,2,2,1]
+        x_mean = stat.mean(X)
+        y_mean = stat.mean(Y)
+        sum_x = 0
+        for x in X:
+            sum_x += (x - x_mean)**2
+        sum_y = 0
+        for y in Y:
+            sum_y += (y - y_mean)**2
+        sd = sqrt(sum_x/7 + sum_y/7)
+
+        # area of the polygon calculated with: https://www.mathopenref.com/coordpolygonareacalc.html
+        area = 5
+        scarcity = sqrt(area / 7)
+
+        expected = [[7, sd, scarcity, 1, 1]]
+
+        for cluster, exp in zip(clusters, expected):
+            self.assert_cluster(exp, cluster)
+
+
 #region setup methods
     def _get_timewindow_single_cluster_same_feature(self) -> TimeWindow:
         '''Returns a TimeWindow with time=KW1 and three nodes in cluster 1, all feature values = 1.'''
@@ -122,14 +190,14 @@ class TestCluster(unittest.TestCase):
         """
         Checks if the cluster values equal the expected_values.
 
-        :param expected_values: A tuple (exp_size, exp_variance, exp_density, exp_import1, exp_import2)
+        :param expected_values: A tuple (exp_size, exp_variance, exp_scarcity, exp_import1, exp_import2)
         """
         self.assertEqual(expected_values[0], cluster.size)
-        self.assertEqual(expected_values[1], cluster.variance)
-        self.assertEqual(expected_values[2], cluster.density)
+        self.assertAlmostEqual(expected_values[1], cluster.variance)
+        self.assertAlmostEqual(expected_values[2], cluster.scarcity)
         
-        self.assertEqual(expected_values[3], cluster.importance1)
-        self.assertEqual(expected_values[4], cluster.importance2)
+        self.assertAlmostEqual(expected_values[3], cluster.importance1)
+        self.assertAlmostEqual(expected_values[4], cluster.importance2)
 
 #endregion custom asserts
 
