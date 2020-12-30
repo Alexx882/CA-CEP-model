@@ -5,6 +5,7 @@ from typing import Dict, List, Any, Tuple
 import numpy as np
 from scipy.spatial import ConvexHull, qhull, distance
 from math import sqrt
+from statistics import mean
 
 warnings.simplefilter(action='ignore', category=UserWarning)
 # UserWarning: geopandas not available. Some functionality will be disabled.
@@ -24,8 +25,8 @@ class ClusterMetricsCalculator(ABC):
         return len(self.cluster_nodes)
 
     @abstractmethod
-    def get_variance(self) -> float:
-        '''Returns the difference from the center for the distribution.'''
+    def get_standard_deviation(self) -> float:
+        '''Returns the std dev from the center of the distribution.'''
         pass
 
     @abstractmethod
@@ -44,17 +45,20 @@ class ClusterMetricsCalculator(ABC):
         '''Returns the inverse of the layer_diversity, where layer_diversity = number of clusters with #nodes > 0.'''
         return 1.0 / self.layer_diversity if len(self.cluster_nodes) > 0 else 0
 
+    def _convert_feature_to_float(self, feature_value) -> float:
+        return float(feature_value if feature_value is not "" else 0)
+
    
 class ClusterMetricsCalculator1D(ClusterMetricsCalculator):
     '''Metrics calculator for clusters which were clustered based on 1 feature (1d clustering).'''
 
     def __init__(self, cluster_nodes: List[dict], cluster_feature_name: str, nr_layer_nodes: int, layer_diversity: int):
         super().__init__(cluster_nodes, nr_layer_nodes, layer_diversity)
-        self.feature_values: List[Any] = [node[cluster_feature_name] for node in cluster_nodes]
+        self.feature_values: List[Any] = [self._convert_feature_to_float(node[cluster_feature_name])
+                                          for node in cluster_nodes]
 
-    def get_variance(self):
-        # TODO check if std is better
-        return np.var(self.feature_values) if len(self.feature_values) > 0 else 0
+    def get_standard_deviation(self):
+        return np.std(self.feature_values) if len(self.feature_values) > 0 else 0
 
     def get_scarcity(self):
         '''Returns the scarcity as cluster_range / cluster_size, or 0 if len(nodes)=0.'''
@@ -67,45 +71,72 @@ class ClusterMetricsCalculator1D(ClusterMetricsCalculator):
 
 class ClusterMetricsCalculator2D(ClusterMetricsCalculator):
     '''Metrics calculator for clusters which were clustered based on 2 features (2d clustering).'''
-
+    
     def __init__(self, cluster_nodes: List[dict], cluster_feature_names: List[str], nr_layer_nodes: int, layer_diversity: int):
         assert len(cluster_feature_names) == 2, "This class is for 2d cluster results only!"
         super().__init__(cluster_nodes, nr_layer_nodes, layer_diversity)
 
         self.feature_values: List[Tuple[Any]] = [
-             (node[cluster_feature_names[0]], node[cluster_feature_names[1]])
+             (self._convert_feature_to_float(node[cluster_feature_names[0]]), self._convert_feature_to_float(node[cluster_feature_names[1]]))
              for node in cluster_nodes
              ]
 
-    def get_variance(self):
+    def get_standard_deviation(self):
         if len(self.feature_values) == 0:
             return 0
 
-        return std_distance(self.feature_values)
+        warnings.simplefilter(action='ignore', category=RuntimeWarning)
+        std_dist = std_distance(self.feature_values)
+        warnings.simplefilter(action='default', category=RuntimeWarning)
+        
+        if np.isnan(std_dist):
+            return 0 # somehow std_dist=nan if all feature values are same with many decimals
+            
+        return std_dist
 
     def get_scarcity(self):
         '''Returns the scarcity as cluster_range / cluster_size, or 0 if len(nodes)=0.'''
-        if len(self.feature_values) == 0 or len(self.feature_values) == 1:
+        if len(self.feature_values) == 0:
+            return 0
+
+        if len(self.feature_values) == 1:
+            # exactly 1 element gives inf density
             return 0
 
         if len(self.feature_values) == 2:
-            # cannot calculate area with 2 points
+            # cannot calculate area with 2 points - just use 2d distance as range instead
             range_ = distance.euclidean(self.feature_values[0], self.feature_values[1])
             return float(range_) / self.get_size()
 
-        # calculate range as 2d area
         try:
+            # calculate range as 2d area
             points = self._get_polygon_border_points(self.feature_values)
             range_ = self._calc_polygon_area(points)
-        except qhull.QhullError as err:
-            # possibly because all points are at the same location
-            # therefore calculating a hull with real area is not possible
-            print(f"Error while calculating the 2d area for density")
-            # this results in infinite density -> 0 scarcity
-            return 0
 
-        # use sqrt to compare with 1d density
-        return sqrt(float(range_) / self.get_size())
+            # use sqrt to compare with 1d scarcity
+            return sqrt(float(range_) / self.get_size())
+
+        except qhull.QhullError as err:
+            # possible reasons that there is no hull with real area:
+            # 1. all points are at the same location
+            # 2. all points have the same x or y coordinates (lie on one hori/vert line)
+            points = np.asarray(self.feature_values)
+            same_x = len(set(points[:,0])) == 1
+            if same_x:
+                # use only y feature
+                features = points[:,1]
+                range_ = max(features) - min(features)
+                return float(range_) / self.get_size()
+
+            same_y = len(set(points[:,1])) == 1
+            if same_y:
+                # use only x feature
+                features = points[:,0]
+                range_ = max(features) - min(features)
+                return float(range_) / self.get_size()
+
+            print("Scarcity calc did not work with 1d feature")
+            return 0
 
     def _get_polygon_border_points(self, points: List[List[float]]) -> 'np.array':
         points = np.asarray(points)

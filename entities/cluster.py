@@ -4,6 +4,7 @@ from entities.timewindow import TimeWindow
 import numpy as np
 from processing import ClusterMetricsCalculatorFactory
 
+
 class Cluster:
     '''A cluster from one time window containing all metrics used for machine learning.'''
 
@@ -14,7 +15,7 @@ class Cluster:
         metrics_calculator = ClusterMetricsCalculatorFactory.create_metrics_calculator(cluster_nodes, cluster_feature_names, nr_layer_nodes, layer_diversity)
 
         self.size = metrics_calculator.get_size()
-        self.variance = metrics_calculator.get_variance()
+        self.std_dev = metrics_calculator.get_standard_deviation()
         self.scarcity = metrics_calculator.get_scarcity()
         
         self.importance1 = metrics_calculator.get_importance1()
@@ -30,7 +31,7 @@ class Cluster:
 
     def __str__(self):
         return f"Cluster({self.cluster_id}, " \
-        f"{self.size}, {self.variance}, {self.scarcity}, " \
+        f"{self.size}, {self.std_dev}, {self.scarcity}, " \
         f"{self.importance1}, {self.importance2})"
 
     @staticmethod
