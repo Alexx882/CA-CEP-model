@@ -1,4 +1,9 @@
 LAYER_NAME = 'CallTypeLayer'
+import sys
+if len(sys.argv) > 1:
+    LAYER_NAME = sys.argv[1]
+
+print(f"Working on {LAYER_NAME}")
 
 ##########
 
@@ -108,9 +113,10 @@ data = list(create_metrics_training_data(layer_name=LAYER_NAME))
 import random
 random.shuffle(data)
 
-# split in 130 training + 20 testing
-train_metrics = data[:-30]
-test_metrics = data[len(data)-30:]
+# test data size: 20%
+test_size = int(len(data) * .2) 
+train_metrics = data[:-test_size]
+test_metrics = data[len(data)-test_size:]
 
 print(f"Working with: {len(train_metrics)} training points + {len(test_metrics)} test points ({len(test_metrics)/(len(train_metrics)+len(test_metrics))}).")
 
@@ -121,7 +127,10 @@ X_test, Y_test = convert_metrics_data_for_training(test_metrics)
 import collections
 import statistics as stat
 print(f"Label Occurrences: Total = {collections.Counter(Y_train.tolist() + Y_test.tolist())}, Training = {collections.Counter(Y_train)}, Test = {collections.Counter(Y_test)}")
-print(f"Label Majority Class: Training = {stat.mode(Y_train)}, Test = {stat.mode(Y_test)}\n")
+try:
+    print(f"Label Majority Class: Training = {stat.mode(Y_train)}, Test = {stat.mode(Y_test)}\n")
+except stat.StatisticsError:
+    print(f"Label Majority Class: no unique mode; found 2 equally common values")
 
 ###########
 

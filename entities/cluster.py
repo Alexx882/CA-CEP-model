@@ -1,4 +1,4 @@
-from __future__ import annotations
+# from __future__ import annotations
 from typing import Dict, List, Iterable, Any
 from entities.timewindow import TimeWindow
 import numpy as np
@@ -35,7 +35,7 @@ class Cluster:
         f"{self.importance1}, {self.importance2})"
 
     @staticmethod
-    def create_multiple_from_time_window(time_window: TimeWindow, cluster_feature_names: List[str]) -> Iterable[Cluster]:
+    def create_multiple_from_time_window(time_window: TimeWindow, cluster_feature_names: List[str]) -> Iterable['Cluster']:
         total_layer_nodes = sum([len(nodes) for nodes in time_window.clusters.values()])
         
         layer_diversity = len([nodes for nodes in time_window.clusters.values() if len(nodes) > 0])
@@ -44,7 +44,7 @@ class Cluster:
             yield Cluster(time_window.time, cluster_nr, cluster_nodes, cluster_feature_names, total_layer_nodes, layer_diversity)
 
     @staticmethod
-    def create_from_dict(dict_):
+    def create_from_dict(dict_) -> 'Cluster':
         cl = Cluster(0, 0, [], 'None', 0, 0)
         cl.__dict__.update(dict_)
         return cl
