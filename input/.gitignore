@@ -9,3 +9,6 @@ clusters/
 
 # time slices as created by the SMART pipeline
 timeslices/
+
+# calculated metrics from the notebook
+metrics/

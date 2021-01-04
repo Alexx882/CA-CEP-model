@@ -45,6 +45,6 @@ class Cluster:
 
     @staticmethod
     def create_from_dict(dict_):
-        cl = Cluster(0, 0, [], 0, 0, 0)
+        cl = Cluster(0, 0, [], 'None', 0, 0)
         cl.__dict__.update(dict_)
         return cl
