@@ -108,29 +108,68 @@ def convert_metrics_data_for_training(data: Iterable) -> ('nparray with Xs', 'np
 
 ##########
 
-data = list(create_metrics_training_data(layer_name=LAYER_NAME))
-
-import random
-random.shuffle(data)
-
-# test data size: 20%
-test_size = int(len(data) * .2) 
-train_metrics = data[:-test_size]
-test_metrics = data[len(data)-test_size:]
-
-print(f"Working with: {len(train_metrics)} training points + {len(test_metrics)} test points ({len(test_metrics)/(len(train_metrics)+len(test_metrics))}).")
-
-X_train, Y_train = convert_metrics_data_for_training(train_metrics)
-X_test, Y_test = convert_metrics_data_for_training(test_metrics)
-
-
+import numpy as np
+import pandas as pd
 import collections
 import statistics as stat
-print(f"Label Occurrences: Total = {collections.Counter(Y_train.tolist() + Y_test.tolist())}, Training = {collections.Counter(Y_train)}, Test = {collections.Counter(Y_test)}")
-try:
-    print(f"Label Majority Class: Training = {stat.mode(Y_train)}, Test = {stat.mode(Y_test)}\n")
-except stat.StatisticsError:
-    print(f"Label Majority Class: no unique mode; found 2 equally common values")
+
+def balance_dataset(X: np.array, Y: np.array, imbalance_threshold=.3) -> ('X: np.array', 'Y: np.array'):
+    '''Balances an unbalanced dataset by ignoring elements from the majority label, so that majority-label data size = median of other cluster sizes.'''
+    y = Y.tolist()
+    counter = collections.Counter(y)
+    print(f"Label Occurrences: Total = {counter}")
+
+    # find key with max values
+    max_key = max(counter, key=lambda k: counter[k])
+    max_val = counter[max_key]
+
+    unbalanced_labels = all([v < max_val * (1-imbalance_threshold) for k, v in counter.items() if k != max_key]) 
+    if unbalanced_labels: # if all other labels are >=30% less frequent than max_key
+        median_rest = int(stat.median([v for k, v in counter.items() if k != max_key]))
+        print(f"Labels are unbalanced, keeping {median_rest} for label {max_key}")
+        
+        # merge X and Y
+        data = np.append(X, Y.reshape(Y.shape[0], 1), 1)
+        df = pd.DataFrame(data, columns=['_']*21+['label'])
+
+        # take only median_rest for the max_key label
+        max_labeled_data = df.loc[df['label'] == max_key].sample(n=median_rest)
+        other_labeled_data = df.loc[df['label'] != max_key]
+        balanced_data = pd.concat([max_labeled_data, other_labeled_data])
+        balanced_data = balanced_data.sample(frac=1) # shuffle
+
+        X = balanced_data.loc[:, balanced_data.columns != 'label'].to_numpy()
+        Y = balanced_data.loc[:, balanced_data.columns == 'label'].to_numpy()
+        Y = Y.reshape(Y.shape[0],).astype(int)
+       
+    return X, Y
+
+def get_training_data(layer_name='CallTypeLayer', test_dataset_frac=.2) -> '(X_train, Y_train, X_test, Y_test)':
+    # load metrics data from disk
+    data: Iterable = create_metrics_training_data(layer_name=layer_name)
+    
+    # convert to X and Y
+    X, Y = convert_metrics_data_for_training(data)
+    X, Y = balance_dataset(X, Y)
+    
+    # split in training and test set
+    test_size = int(X.shape[0] * test_dataset_frac) 
+    X_train = X[test_size:]
+    Y_train = Y[test_size:]
+    X_test = X[:test_size]
+    Y_test = Y[:test_size]
+
+    print(f"\nWorking with: {X_train.shape[0]} training points + {X_test.shape[0]} test points ({X_test.shape[0]/(X_train.shape[0]+X_test.shape[0])}).")
+    print(f"Label Occurrences: Total = {collections.Counter(Y_train.tolist() + Y_test.tolist())}, "\
+          f"Training = {collections.Counter(Y_train)}, Test = {collections.Counter(Y_test)}")
+    try:
+        print(f"Label Majority Class: Training = {stat.mode(Y_train)}, Test = {stat.mode(Y_test)}\n")
+    except stat.StatisticsError:
+        print(f"Label Majority Class: no unique mode; found 2 equally common values")
+
+    return X_train, Y_train, X_test, Y_test
+
+X_train, Y_train, X_test, Y_test = get_training_data(LAYER_NAME)
 
 ###########
 
