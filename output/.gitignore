@@ -1,0 +1,2 @@
+# models trained by the `train.sh` and `train.py` scripts
+*.model
