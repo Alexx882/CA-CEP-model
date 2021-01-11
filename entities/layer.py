@@ -51,11 +51,18 @@ class Layer:
         '''
         return scipy.stats.entropy(self.get_relative_cluster_sizes(clusters), base=2)
 
+    def __repr__(self):
+        return str(self.__dict__)
+
+    def __str__(self):
+        return f"Layer({self.time_window_id}, " \
+        f"{self.relative_cluster_sizes}, {self.entropy}, {self.distances_from_global_centers})"
+
     def get_distances_from_global_center(self, clusters: List[InternalCluster]):
         return [cluster.global_center_distance for cluster in clusters]
 
     @staticmethod
     def create_from_time_window(time_window: TimeWindow, feature_names:List[str], global_cluster_centers: Dict[str, Tuple[float]]) -> 'Layer':
-        clusters: List[InternalCluster] = InternalCluster.create_many_from_cluster_nodes(clusters, feature_names, global_cluster_centers)
+        clusters: List[InternalCluster] = InternalCluster.create_many_from_cluster_nodes(time_window.clusters, feature_names, global_cluster_centers)
         return Layer(time_window.time, clusters)
     

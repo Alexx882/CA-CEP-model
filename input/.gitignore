@@ -10,5 +10,8 @@ clusters/
 # time slices as created by the SMART pipeline
 timeslices/
 
-# calculated metrics from the notebook
+# calculated metrics for the clusters from the notebook
 metrics/
+
+# calculated metrics for the layers from the notebook
+layer_metrics/

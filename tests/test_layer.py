@@ -28,7 +28,7 @@ class TestInternalCluster(unittest.TestCase):
 
         c = InternalCluster("123", cluster_nodes, feature_names=["feature1", 'feature2'], global_cluster_center=(1.5,1.5))
         
-        # https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
+        # distance: https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
         self.assert_internal_cluster(c, '123', 3, sqrt(.5))
 
     def test__get_current_cluster_center__1d(self):
@@ -63,13 +63,54 @@ class TestInternalCluster(unittest.TestCase):
 
 
 class TestLayer(unittest.TestCase):
-    def test__init__single_cluster(self):
+    def test__init__1d_single_cluster(self):
         cluster_nodes = list(self._get_timewindow_single_cluster_1d_same_feature().clusters.values())[0]
         c = InternalCluster("123", cluster_nodes, feature_names=["feature"], global_cluster_center=(1,0))
 
         l = Layer('123', [c])
 
         self.assert_layer(l, [1], 0, [0])
+
+    def test__create_from_time_window__1d_single_cluster(self):
+        tw = self._get_timewindow_single_cluster_1d_same_feature()
+        l = Layer.create_from_time_window(tw, feature_names=['feature'], global_cluster_centers={'1': (1,0)})
+
+        self.assert_layer(l, [1], 0, [0])
+
+    def test__create_from_time_window__2d_single_cluster(self):
+        tw = self._get_timewindow_single_cluster_2d_same_feature()
+        l = Layer.create_from_time_window(tw, feature_names=['feature1', 'feature2'], global_cluster_centers={'1': (1,1)})
+
+        self.assert_layer(l, [1], 0, [0])
+
+    def test__create_from_time_window__1d_two_clusters(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("2", {"feature1":5})
+        tw.add_node_to_cluster("2", {"feature1":5})
+        tw.add_node_to_cluster("2", {"feature1":7})
+        tw.add_node_to_cluster("2", {"feature1":6})
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1'], global_cluster_centers={'1': (1.5,0), '2': (5,0)})
+
+        # entropy: https://planetcalc.com/2476/
+        # distance: https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
+        self.assert_layer(l, [2/6, 4/6], 0.91829583, [.5, .75])
+
+    def test__create_from_time_window__2d_two_clusters(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":1})
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":2})
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":2})
+        tw.add_node_to_cluster("2", {"feature1":5,"feature2":5})
+        tw.add_node_to_cluster("2", {"feature1":7,"feature2":4})
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1', 'feature2'], global_cluster_centers={'1': (1,1), '2': (6.5,5)})
+
+        # entropy: https://planetcalc.com/2476/
+        # distance: https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
+        self.assert_layer(l, [3/5, 2/5], 0.97095059, [2/3, sqrt(.5)])
         
     #region setup methods
     def _get_timewindow_single_cluster_1d_same_feature(self) -> TimeWindow:
@@ -86,20 +127,6 @@ class TestLayer(unittest.TestCase):
         tw.add_node_to_cluster("1", {"feature1":1, "feature2":1})
         tw.add_node_to_cluster("1", {"feature1":1, "feature2":1})
         tw.add_node_to_cluster("1", {"feature1":1, "feature2":1})
-        return tw
-
-    def _get_timewindow_two_clusters_same_feature(self) -> TimeWindow:
-        '''
-        Returns a TimeWindow with time=KW1 and:
-        Three nodes in cluster 1, all feature values = 1.
-        Two nodes in cluster 2, all feature values = 2.
-        '''
-        tw = TimeWindow("KW1", "uc", "uct", "ln")
-        tw.add_node_to_cluster("1", {"feature":1})
-        tw.add_node_to_cluster("1", {"feature":1})
-        tw.add_node_to_cluster("1", {"feature":1})
-        tw.add_node_to_cluster("2", {"feature":2})
-        tw.add_node_to_cluster("2", {"feature":2})
         return tw
 
     #endregion setup methods
