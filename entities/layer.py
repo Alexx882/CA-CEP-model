@@ -27,6 +27,11 @@ class InternalCluster:
     def create_many_from_cluster_nodes(clusters: Dict[str, List[dict]], feature_names: List[str], global_cluster_centers: Dict[str, Tuple[float]]) -> List['InternalCluster']:
         res_clusters = []
         for key, value in clusters.items():
+
+            # ignore noise as it contains no meaningful cluster information
+            if key == '-1':
+                continue
+
             res_clusters.append(InternalCluster(key, value, feature_names, global_cluster_centers[key]))
         return res_clusters
 
@@ -66,3 +71,8 @@ class Layer:
         clusters: List[InternalCluster] = InternalCluster.create_many_from_cluster_nodes(time_window.clusters, feature_names, global_cluster_centers)
         return Layer(time_window.time, clusters)
     
+    @staticmethod
+    def create_from_dict(dict_) -> 'Layer':
+        l = Layer(0, [])
+        l.__dict__.update(dict_)
+        return l

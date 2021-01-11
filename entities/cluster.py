@@ -30,7 +30,7 @@ class Cluster:
         return str(self.__dict__)
 
     def __str__(self):
-        return f"Cluster({self.cluster_id}, " \
+        return f"Cluster({self.time_window_id}, {self.cluster_id}, " \
         f"{self.size}, {self.std_dev}, {self.scarcity}, " \
         f"{self.importance1}, {self.importance2})"
 
