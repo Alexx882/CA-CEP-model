@@ -1,5 +1,5 @@
 
-MAX_DEPTH: int = 5
+MAX_DEPTHS: int = [5, 10, 15]
 LAYER_NAME: str = 'CallTypeLayer'
 REFERENCE_LAYER_NAME: str = 'DayTypeLayer'
 
@@ -7,13 +7,11 @@ import sys
 if len(sys.argv) > 1:
     LAYER_NAME = sys.argv[1]
     REFERENCE_LAYER_NAME = sys.argv[2]
-    MAX_DEPTH = sys.argv[3]
 
 print(f"Working with params:")
 from icecream import ic
 ic(LAYER_NAME)
 ic(REFERENCE_LAYER_NAME)
-ic(MAX_DEPTH)
 
 #######################
 
@@ -162,7 +160,7 @@ def balance_dataset(X: np.array, Y: np.array, imbalance_threshold=.3) -> ('X: np
         
         # merge X and Y
         data = np.append(X, Y.reshape(Y.shape[0], 1), 1)
-        df = pd.DataFrame(data, columns=['_']*21+['label'])
+        df = pd.DataFrame(data, columns=['_']*X.shape[1]+['label'])
 
         # take only median_rest for the max_key label
         max_labeled_data = df.loc[df['label'] == max_key].sample(n=median_rest)
@@ -207,21 +205,21 @@ X_train, Y_train, X_test, Y_test = get_training_data(layer_name=LAYER_NAME, refe
 
 #########
 
+for depth in MAX_DEPTHS:
+    from sklearn.ensemble import RandomForestClassifier
+    classifier = RandomForestClassifier(max_depth=depth)
+    classifier.fit(X_train, Y_train)
 
-from sklearn.ensemble import RandomForestClassifier
-classifier = RandomForestClassifier(max_depth=MAX_DEPTH)
-classifier.fit(X_train, Y_train)
+    # export
+    import pickle 
 
-# export
-import pickle 
-
-with open(f'output/layer_metrics/{MAX_DEPTH}/{LAYER_NAME}_{REFERENCE_LAYER_NAME}.model', 'wb') as file:
-    b = pickle.dump(classifier, file)
+    with open(f'output/layer_metrics/{depth}/{LAYER_NAME}_{REFERENCE_LAYER_NAME}.model', 'wb') as file:
+        b = pickle.dump(classifier, file)
 
 
-# verify
-import sklearn
+    # verify
+    import sklearn
 
-pred_Y = classifier.predict(X_test)
+    pred_Y = classifier.predict(X_test)
 
-print(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y))
+    print(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y))
