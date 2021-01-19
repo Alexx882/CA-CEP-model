@@ -7,7 +7,10 @@ class InternalCluster:
     def __init__(self, cluster_id, cluster_nodes: List[dict], feature_names:List[str], global_cluster_center: Tuple[float]):
         self.cluster_id = cluster_id
         self.size = len(cluster_nodes)
-        self.global_center_distance = scipy.spatial.distance.euclidean(self.get_current_cluster_center(cluster_nodes, feature_names), global_cluster_center)
+        if len(cluster_nodes) > 0:
+            self.global_center_distance = scipy.spatial.distance.euclidean(self.get_current_cluster_center(cluster_nodes, feature_names), global_cluster_center)
+        else:
+            self.global_center_distance = 0
 
     def _convert_feature_to_float(self, feature_value) -> float:
         return float(feature_value if feature_value is not "" else 0)
