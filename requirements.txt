@@ -5,6 +5,7 @@ certifi==2020.12.5
 chardet==4.0.0
 colorama==0.4.4
 cycler==0.10.0
+cython==0.28.5
 decorator==4.4.2
 folium==0.11.0
 icecream
@@ -36,6 +37,7 @@ pytz==2020.5
 # pywin32==300
 pyzmq==20.0.0
 requests==2.25.1
+scikit-build
 scikit-learn==0.24.0
 scipy
 six==1.15.0

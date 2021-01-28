@@ -50,7 +50,10 @@ class Layer:
 
     def get_relative_cluster_sizes(self, clusters: List[InternalCluster]):
         total_size = sum([cluster.size for cluster in clusters])
-        return [cluster.size / total_size for cluster in clusters]
+        if total_size > 0:
+            return [cluster.size / total_size for cluster in clusters]
+        else: 
+            return [0] * len(clusters)
         
     def get_entropy(self, clusters: List[InternalCluster]):
         '''

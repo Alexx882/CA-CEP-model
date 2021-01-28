@@ -1,3 +1,5 @@
 # models trained by the `train.sh` and `train.py` scripts
-
 /cluster_metrics/**/*.model
+
+# models trained by the `train_layer.sh` and `train_layer.py` scripts
+/layer_metrics/**/*.model
