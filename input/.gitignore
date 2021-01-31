@@ -9,6 +9,13 @@ clusters/
 
 # time slices as created by the SMART pipeline
 timeslices/
+## This folder contains the old time slices, where empty clusters were not added to the slices.
+timeslices_old/ 
 
-# calculated metrics from the notebook
+# calculated metrics for the clusters from the notebook
 metrics/
+metrics_old/
+
+# calculated metrics for the layers from the notebook
+layer_metrics/
+layer_metrics_old/
