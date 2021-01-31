@@ -222,4 +222,39 @@ for depth in MAX_DEPTHS:
 
     pred_Y = classifier.predict(X_test)
 
+    print(f"### Layer={LAYER_NAME}, Ref Layer={REFERENCE_LAYER_NAME}, Depth={depth} ###")
     print(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y))
+    
+    
+###########
+
+
+import sklearn
+import statistics as stat
+import random
+
+def show_majority_class_prediction():
+    print("### Majority Class Prediction: ###")
+
+    majority_class = stat.mode(Y_train)
+    try:
+        print(f"Training majority class = {stat.mode(Y_train)}, Test majority class = {stat.mode(Y_test)}") 
+    except stat.StatisticsError:
+        print(f"Label Majority Class: no unique mode; found 2 equally common values")
+
+    pred_Y = len(Y_test) * [majority_class]
+    print(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y))
+
+    
+def show_random_prediction():
+    print("### Random Class Prediction: ###")
+
+    classes = list(set(Y_train))
+    print(f"Classes: {classes}")
+
+    pred_Y = random.choices(classes, k=len(Y_test))
+    print(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y))
+
+
+show_majority_class_prediction()
+show_random_prediction()
