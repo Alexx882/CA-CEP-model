@@ -1,0 +1,6 @@
+# raw data from https://www.kaggle.com/datasnaek/youtube-new
+raw/
+
+# preprocessed data 
+categories.json
+videos.csv
