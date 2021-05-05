@@ -36,6 +36,16 @@ class ClusterMetricsCalculator(ABC):
         '''
         pass
 
+    @abstractmethod
+    def get_range(self) -> float:
+        '''Returns the range or area of the cluster based on the edge nodes.'''
+        pass
+
+    @abstractmethod
+    def get_center(self) -> (float, float):
+        '''Returns the center of the cluster, output is fixed 2d.'''
+        pass
+
     def get_importance1(self) -> float:
         '''Returns the ratio of cluster_nodes to layer_nodes.'''
         return float(len(self.cluster_nodes)) / self.nr_layer_nodes if len(self.cluster_nodes) > 0 else 0
@@ -55,6 +65,11 @@ class ClusterMetricsCalculator1D(ClusterMetricsCalculator):
         super().__init__(cluster_nodes, nr_layer_nodes, layer_diversity)
         self.feature_values: List[Any] = [self._convert_feature_to_float(node[cluster_feature_name])
                                           for node in cluster_nodes]
+        if len(self.feature_values) > 0:
+            self.max_value = max(self.feature_values)
+            self.min_value = min(self.feature_values)
+        else:
+            self.max_value = self.min_value = 0
 
     def get_standard_deviation(self):
         return np.std(self.feature_values) if len(self.feature_values) > 0 else 0
@@ -64,8 +79,15 @@ class ClusterMetricsCalculator1D(ClusterMetricsCalculator):
         if len(self.feature_values) == 0:
             return 0
 
-        range_ = max(self.feature_values) - min(self.feature_values)
-        return float(range_) / self.get_size()
+        return self.get_range() / self.get_size()
+
+    def get_range(self):
+        return float(self.max_value - self.min_value)
+
+    def get_center(self):
+        if len(self.feature_values) == 0:
+            return (0, 0)
+        return (sum(self.feature_values) / len(self.feature_values), 0)
 
 
 class ClusterMetricsCalculator2D(ClusterMetricsCalculator):
@@ -102,40 +124,55 @@ class ClusterMetricsCalculator2D(ClusterMetricsCalculator):
             # exactly 1 element gives inf density
             return 0
 
-        if len(self.feature_values) == 2:
+        range_, twodim = self._get_range()
+        if twodim:
+            return sqrt(range_ / self.get_size())
+        else:
+            return range_ / self.get_size()
+   
+    def _get_range(self):
+        twodim = False
+
+        if len(self.feature_values) == 0 or len(self.feature_values) == 1:
+            range_ = 0
+
+        elif len(self.feature_values) == 2:
             # cannot calculate area with 2 points - just use 2d distance as range instead
-            range_ = distance.euclidean(self.feature_values[0], self.feature_values[1])
-            return float(range_) / self.get_size()
+            range_ = float(distance.euclidean(self.feature_values[0], self.feature_values[1]))
+        
+        else:
+            try:
+                # calculate range as 2d area
+                points = self._get_polygon_border_points(self.feature_values)
+                range_ = self._calc_polygon_area(points)
+                # twodim must be known when calculating scarcity
+                twodim = True
 
-        try:
-            # calculate range as 2d area
-            points = self._get_polygon_border_points(self.feature_values)
-            range_ = self._calc_polygon_area(points)
+            except qhull.QhullError as err:
+                # possible reasons that there is no hull with real area:
+                # 1. all points are at the same location
+                # 2. all points have the same x or y coordinates (lie on one hori/vert line)
+                points = np.asarray(self.feature_values)
+                same_x = len(set(points[:,0])) == 1
+                if same_x:
+                    # use only y feature
+                    features = points[:,1]
+                    range_ = max(features) - min(features)
 
-            # use sqrt to compare with 1d scarcity
-            return sqrt(float(range_) / self.get_size())
+                same_y = len(set(points[:,1])) == 1
+                if same_y:
+                    # use only x feature
+                    features = points[:,0]
+                    range_ = max(features) - min(features)
 
-        except qhull.QhullError as err:
-            # possible reasons that there is no hull with real area:
-            # 1. all points are at the same location
-            # 2. all points have the same x or y coordinates (lie on one hori/vert line)
-            points = np.asarray(self.feature_values)
-            same_x = len(set(points[:,0])) == 1
-            if same_x:
-                # use only y feature
-                features = points[:,1]
-                range_ = max(features) - min(features)
-                return float(range_) / self.get_size()
+                if not same_x and not same_y:
+                    print("Scarcity calc did not work with 1d feature")
+                    return 0
 
-            same_y = len(set(points[:,1])) == 1
-            if same_y:
-                # use only x feature
-                features = points[:,0]
-                range_ = max(features) - min(features)
-                return float(range_) / self.get_size()
-
-            print("Scarcity calc did not work with 1d feature")
-            return 0
+        return (range_, twodim)
+    
+    def get_range(self):
+        return self._get_range()[0]
 
     def _get_polygon_border_points(self, points: List[List[float]]) -> 'np.array':
         points = np.asarray(points)
@@ -148,7 +185,13 @@ class ClusterMetricsCalculator2D(ClusterMetricsCalculator):
         # https://en.wikipedia.org/wiki/Shoelace_formula
         area = 0.5 * np.abs(np.dot(x, np.roll(y,1)) - np.dot(y, np.roll(x,1)))
         return float(area)
-    
+
+    def get_center(self):
+        x = [f[0] for f in self.feature_values]
+        y = [f[1] for f in self.feature_values] 
+        centroid = (sum(x) / len(self.feature_values), sum(y) / len(self.feature_values))
+        return centroid
+
 
 class ClusterMetricsCalculatorFactory:
     @staticmethod

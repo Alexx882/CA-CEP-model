@@ -123,7 +123,7 @@ class TestCluster(unittest.TestCase):
 
         for cluster, exp in zip(clusters, expected):
             self.assert_cluster(exp, cluster)
-            
+                        
     def test__create_multiple_from_time_window__2d_clustering_complex__correct_stddev_and_scarcity(self):
         tw = TimeWindow("CW1", "uc", "uct", "ln")
         tw.add_node_to_cluster("1", {"f1":0, "f2":0})
@@ -177,6 +177,37 @@ class TestCluster(unittest.TestCase):
         for cluster, exp in zip(clusters, expected):
             self.assert_cluster(exp, cluster)
 
+    def test__create_multiple_from_time_window__1d_clusters__correct_cluster_range_and_center(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1})
+        tw.add_node_to_cluster("1", {"f1":2})
+        tw.add_node_to_cluster("1", {"f1":1})
+        tw.add_node_to_cluster("2", {"f1":70})
+        tw.add_node_to_cluster("2", {"f1":72})
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1"])
+        expected = [(1, (4/3,0)), (2, (71,0))] # (range, center)
+
+        for c, exp in zip(clusters, expected):
+            self.assertEqual(c.range_, exp[0])
+            self.assertEqual(c.center, exp[1])
+
+    def test__create_multiple_from_time_window__2d_clusters__correct_cluster_range_and_center(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1, "f2":1})
+        tw.add_node_to_cluster("1", {"f1":2, "f2":1})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":3})
+        tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+        tw.add_node_to_cluster("2", {"f1":72, "f2":75})
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1","f2"])
+        # https://www.triangle-calculator.com/de/?what=vc&a=1&a1=1&3dd=3D&a2=&b=2&b1=1&b2=&c=1&c1=3&c2=&submit=Berechnen&3d=0
+        # https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
+        expected = [(1, (4/3,5/3)), (5.385165, (71,72.5))] # (range, center)
+
+        for c, exp in zip(clusters, expected):
+            self.assertAlmostEqual(c.range_, exp[0], places=6)
+            self.assertEqual(c.center, exp[1])
 
 #region setup methods
     def _get_timewindow_single_cluster_same_feature(self) -> TimeWindow:

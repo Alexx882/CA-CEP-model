@@ -20,6 +20,9 @@ class Cluster:
         
         self.importance1 = metrics_calculator.get_importance1()
         self.importance2 = metrics_calculator.get_importance2()
+        
+        self.range_ = metrics_calculator.get_range()
+        self.center = metrics_calculator.get_center()
 
     def get_time_info(self) -> int:
         '''Returns the week of the time tuple str, eg. 25 for "(2014, 25)".'''
@@ -32,7 +35,8 @@ class Cluster:
     def __str__(self):
         return f"Cluster({self.time_window_id}, {self.cluster_id}, " \
         f"{self.size}, {self.std_dev}, {self.scarcity}, " \
-        f"{self.importance1}, {self.importance2})"
+        f"{self.importance1}, {self.importance2}, " \
+        f"{self.range_}, {self.center})"
 
     @staticmethod
     def create_multiple_from_time_window(time_window: TimeWindow, cluster_feature_names: List[str]) -> Iterable['Cluster']:
