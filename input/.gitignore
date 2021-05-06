@@ -14,7 +14,7 @@ timeslices_old/
 
 # calculated metrics for the clusters from the notebook
 metrics/
-metrics_old/
+metrics_*/
 
 # calculated metrics for the layers from the notebook
 layer_metrics/

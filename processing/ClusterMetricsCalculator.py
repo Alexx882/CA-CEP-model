@@ -166,8 +166,11 @@ class ClusterMetricsCalculator2D(ClusterMetricsCalculator):
                     range_ = max(features) - min(features)
 
                 if not same_x and not same_y:
-                    print("Scarcity calc did not work with 1d feature")
-                    return 0
+                    # assume linear distribution of nodes
+                    points = np.asarray(list(set(self.feature_values)))
+                    min_ = min(points[:,0]), min(points[:,1])
+                    max_ = max(points[:,0]), max(points[:,1])
+                    range_ = float(distance.euclidean(min_, max_))
 
         return (range_, twodim)
     
