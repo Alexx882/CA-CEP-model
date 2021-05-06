@@ -3,3 +3,6 @@
 
 # models trained by the `train_layer.sh` and `train_layer.py` scripts
 /layer_metrics/**/*.model
+
+# dfs for training
+/cluster_metrics/data
