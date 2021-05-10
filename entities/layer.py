@@ -1,41 +1,36 @@
 from typing import Dict, List, Tuple, Any
 import scipy.spatial
 from entities.timewindow import TimeWindow
+from processing import ClusterMetricsCalculatorFactory
 
 
 class InternalCluster:
-    def __init__(self, cluster_id, cluster_nodes: List[dict], feature_names:List[str], global_cluster_center: Tuple[float]):
+    def __init__(self, cluster_id, cluster_nodes: List[dict], feature_names:List[str], global_cluster_center: Tuple[float], n_layer_nodes: int):
         self.cluster_id = cluster_id
-        self.size = len(cluster_nodes)
-        if len(cluster_nodes) > 0:
-            self.global_center_distance = scipy.spatial.distance.euclidean(self.get_current_cluster_center(cluster_nodes, feature_names), global_cluster_center)
+
+        metrics_calculator = ClusterMetricsCalculatorFactory.create_metrics_calculator(cluster_nodes, feature_names, n_layer_nodes, None)
+
+        self.size = metrics_calculator.get_size()
+        self.relative_size = metrics_calculator.get_importance1()
+        self.center = metrics_calculator.get_center()
+
+        if self.size > 0:
+            self.global_center_distance = scipy.spatial.distance.euclidean(self.center, global_cluster_center)
         else:
             self.global_center_distance = 0
-
-    def _convert_feature_to_float(self, feature_value) -> float:
-        return float(feature_value if feature_value is not "" else 0)
-
-    def get_current_cluster_center(self, nodes, features) -> ('x', 'y'):
-        if len(features) == 1:
-            values = [self._convert_feature_to_float(node[features[0]]) for node in nodes]
-            return (sum(values)/len(values), 0)
-        
-        if len(features) == 2:
-            x = [self._convert_feature_to_float(node[features[0]]) for node in nodes]
-            y = [self._convert_feature_to_float(node[features[1]]) for node in nodes]
-            centroid = (sum(x) / len(nodes), sum(y) / len(nodes))
-            return centroid
 
     @staticmethod
     def create_many_from_cluster_nodes(clusters: Dict[str, List[dict]], feature_names: List[str], global_cluster_centers: Dict[str, Tuple[float]]) -> List['InternalCluster']:
         res_clusters = []
+        total_layer_nodes = sum([len(nodes) for nodes in clusters.values()])
+
         for key, value in clusters.items():
 
             # ignore noise as it contains no meaningful cluster information
             if key == '-1':
                 continue
 
-            res_clusters.append(InternalCluster(key, value, feature_names, global_cluster_centers[key]))
+            res_clusters.append(InternalCluster(key, value, feature_names, global_cluster_centers[key], total_layer_nodes))
         return res_clusters
 
 
@@ -44,16 +39,17 @@ class Layer:
     def __init__(self, time_window_id: Any, clusters: List[InternalCluster]):
         self.time_window_id = time_window_id
                 
+        self.n_nodes = sum([c.size for c in clusters])
+        self.n_clusters = len(clusters)
+
         self.relative_cluster_sizes = self.get_relative_cluster_sizes(clusters)
         self.entropy = self.get_entropy(clusters)
+
+        self.centers = [c.center for c in clusters]
         self.distances_from_global_centers = self.get_distances_from_global_center(clusters)
 
     def get_relative_cluster_sizes(self, clusters: List[InternalCluster]):
-        total_size = sum([cluster.size for cluster in clusters])
-        if total_size > 0:
-            return [cluster.size / total_size for cluster in clusters]
-        else: 
-            return [0] * len(clusters)
+        return [c.relative_size for c in clusters]
         
     def get_entropy(self, clusters: List[InternalCluster]):
         '''
@@ -62,15 +58,16 @@ class Layer:
         '''
         return scipy.stats.entropy(self.get_relative_cluster_sizes(clusters), base=2)
 
+    def get_distances_from_global_center(self, clusters: List[InternalCluster]):
+        return [cluster.global_center_distance for cluster in clusters]
+
     def __repr__(self):
         return str(self.__dict__)
 
     def __str__(self):
         return f"Layer({self.time_window_id}, " \
-        f"{self.relative_cluster_sizes}, {self.entropy}, {self.distances_from_global_centers})"
-
-    def get_distances_from_global_center(self, clusters: List[InternalCluster]):
-        return [cluster.global_center_distance for cluster in clusters]
+        f"{self.n_nodes}, {self.n_clusters}, {self.relative_cluster_sizes}, " \
+        f"{self.entropy}, {self.centers}, {self.distances_from_global_centers})"
 
     @staticmethod
     def create_from_time_window(time_window: TimeWindow, feature_names:List[str], global_cluster_centers: Dict[str, Tuple[float]]) -> 'Layer':
