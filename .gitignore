@@ -1,6 +1,9 @@
 **/.vscode
-**/venv
+**/venv*
 **/__pycache__
 
 _predictions
 data/**
+
+input/**
+output/**
