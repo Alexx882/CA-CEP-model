@@ -1,4 +1,6 @@
 
+dataset = 'youtube'
+
 ########################
 #### Single-Context ####
 ########################
@@ -13,10 +15,10 @@ def store_metrics_for_clusters(layer_name: str, feature_names: List[str]):
     :param layer_name: Name of the layer for which multiple time windows exist
     :param feature_names: Features of the layer
     '''
-    print(f"Working on {layer_name}")
+    print(f"Working on {layer_name} cluster metrics")
 
-    path_in = f'_predictions/timeslices/{layer_name}'
-    path_out = f'_predictions/metrics/{layer_name}.json'
+    path_in = f'data/{dataset}/raw/timeslices/{layer_name}'
+    path_out = f'data/{dataset}/cluster_metrics/{layer_name}.json'
 
     complete_clusters: List[Cluster] = []
 
@@ -93,7 +95,7 @@ def create_metrics_training_data(layer_name: str, N: int = 3) -> Iterable[list]:
     :param layer_name: the name of the layer metrics json file
     """
     
-    path_in = f"_predictions/metrics/{layer_name}.json"
+    path_in = f"data/{dataset}/cluster_metrics/{layer_name}.json"
     with open(path_in, 'r') as file:
         data = [Cluster.create_from_dict(cl_d) for cl_d in json.loads(file.read())]
 
@@ -174,7 +176,7 @@ def store_training_data(layer_name: str):
     # shuffle
     df = df.sample(frac=1).reset_index(drop=True)
     
-    df.to_csv(f'_predictions/cluster_metrics/data/{layer_name}.csv')
+    df.to_csv(f'data/{dataset}/ml_input/single_context/{layer_name}.csv')
 
 
 for name, _ in layers:
@@ -195,16 +197,12 @@ from processing import ClusterMetricsCalculatorFactory
 def calculate_center(cluster: dict, features: list) -> Tuple[float]:
     calc = ClusterMetricsCalculatorFactory.create_metrics_calculator(cluster['nodes'], features, 1, 1)
     return calc.get_center()
-    # if '--' in label:
-    #     return (stat.mean([float(e) for e in label.split('--')]), 0)
-    # else:
-    #     return [float(e) for e in label.replace('(', '').replace(')', '').split(',')]
 
 def store_metrics_for_layers(layer_name: str = 'CallTypeLayer', feature_names: List[str] = ['call_type']):
-    print(f"Working on {layer_name}")
+    print(f"Working on {layer_name} layer metrics")
 
     # load global cluster centers
-    path_in = f'_predictions/clusters/{layer_name}.json'
+    path_in = f'data/{dataset}/raw/clusters/{layer_name}.json'
     with open(path_in, 'r') as file:
         clusters = json.loads(file.read())
         cluster_centers: Dict[str, Tuple[float]] = { 
@@ -215,7 +213,7 @@ def store_metrics_for_layers(layer_name: str = 'CallTypeLayer', feature_names: L
 
     # load time windows 
     all_layers: List[Layer] = []
-    path_in = f'_predictions/timeslices/{layer_name}'
+    path_in = f'data/{dataset}/raw/timeslices/{layer_name}'
     for root, _, files in os.walk(path_in):
         for f in files:
             with open(os.path.join(root, f), 'r') as file:
@@ -226,18 +224,29 @@ def store_metrics_for_layers(layer_name: str = 'CallTypeLayer', feature_names: L
                 all_layers.append(layer)
         
     # store the layer metrics
-    path_out = f'_predictions/layer_metrics/{layer_name}.json'
+    path_out = f'data/{dataset}/layer_metrics/{layer_name}.json'
     with open(path_out, 'w') as file:
         file.write(json.dumps([l.__dict__ for l in all_layers]))
 
 
 for layer in layers:
-    store_metrics_for_layers(layer[0], layer[1])
+    try:
+        store_metrics_for_layers(layer[0], layer[1])
+    except FileNotFoundError:
+        pass
 
 
-COLUMNS = ['n_nodes', 'n_clusters', 'entropy', 
-           'relative_cluster_sizes', 'cluster_centers', 'distance_from_global_centers', 
-           'time_f1', 'time_f2'] * 2 + ['evolution_label']
+from typing import List
+
+def get_columns(N, M) -> List[str]:
+    '''Returns columns for the data depending on sizes of N (number time windows) and M (number of clusters in L_R).'''
+    cols = ['n_nodes', 'n_clusters', 'entropy']
+    cols.extend(['relative_cluster_sizes']*M)
+    # cols.extend(['cluster_centers']*M)
+    cols.extend(['distance_from_global_centers']*M)
+    cols.extend(['time_f1', 'time_f2'])
+    cols = cols * N 
+    return cols + ['cluster_id'] + ['evolution_label']
 
 
 def get_cyclic_time_feature_from_time_window(time: str) -> (float, float):
@@ -256,13 +265,16 @@ def get_layer_metrics(layer: Layer):
 def create_layer_metrics_training_data(layer_name: str, reference_layer: str, N: int = 2) -> Iterable:
     """
     Loads the metrics training data for an individual layer from disk.
+    
+    The very first generator entry contains N and M.
+
     A single metrics training data point should look like this:
 
     [(n_nodes, n_clusters, entropy,
      (relative_cluster_size)^M, (cluster_centers)^M, (distance_from_global_centers)^M, 
      (time1, time2))^N, 
      cluster_number, evolution_label]
-
+     
     The first tuple represents metrics from the reference layer in t_i-(N-1).
     The Nth tuple represents metrics from the reference layer in t_i.
     The reference_layer has M clusters in total, this might differ from the number of clusters in layer_name.
@@ -272,12 +284,12 @@ def create_layer_metrics_training_data(layer_name: str, reference_layer: str, N:
     # TODO N is not implemented and fixed to 2
     """
     
-    with open(f'_predictions/metrics/{layer_name}.json') as file:
+    with open(f'data/{dataset}/cluster_metrics/{layer_name}.json') as file:
         cluster_metrics: List[Cluster] = [Cluster.create_from_dict(e) for e in json.loads(file.read())]
         cluster_ids = {c.cluster_id for c in cluster_metrics}
         cluster_metrics: Dict[Any, Cluster] = {(c.time_window_id, c.cluster_id): c for c in cluster_metrics}
         
-    with open(f'_predictions/layer_metrics/{reference_layer}.json') as file:
+    with open(f'data/{dataset}/layer_metrics/{reference_layer}.json') as file:
         layer_metrics: List[Layer] = [Layer.create_from_dict(e) for e in json.loads(file.read())]
         layer_metrics: Dict[Any, Layer] = {l.time_window_id: l for l in layer_metrics}
 
@@ -285,6 +297,9 @@ def create_layer_metrics_training_data(layer_name: str, reference_layer: str, N:
     ordered_time_keys = list(layer_metrics.keys())
     ordered_time_keys.sort(key=lambda x: [int(v) for v in x.replace('(', '').replace(')', '').split(',')])
     
+    # Yield N (number time windows) and M (number clusters in layer)
+    yield N, len(get_layer_metrics(layer_metrics[ordered_time_keys[0]])[3])
+
     # go through all time windows once...
     prev_time_key = ordered_time_keys[0]
     for current_time_key in ordered_time_keys[1:]:
@@ -311,7 +326,7 @@ def flatten_layer_metrics_datapoint(datapoint: list) -> ('X, y: np.array'):
     '''
     Flattens a single layer metrics data point in the form:
     [(n_nodes, n_clusters, entropy,
-     (relative_cluster_size)^M, (cluster_centers)^M, (distance_from_global_centers)^M, 
+     (relative_cluster_size)^M, (distance_from_global_centers)^M, 
      (time1, time2))^N, 
      cluster_number, evolution_label]
     to:
@@ -319,9 +334,12 @@ def flatten_layer_metrics_datapoint(datapoint: list) -> ('X, y: np.array'):
     '''
     flat_list = []
     for layer_metric_tuple in datapoint[:-2]: # for all x
-        flat_list.append(layer_metric_tuple[0:2]) # n_nodes, n_clusters, entropy
+        flat_list.extend(layer_metric_tuple[0:3]) # n_nodes, n_clusters, entropy
         flat_list.extend(layer_metric_tuple[3]) # rel sizes
-        flat_list.extend(layer_metric_tuple[4]) # centers
+
+        # will ignore absolute centers -> do not have meaning, as they could be anywhere in some feature space for different datasets
+        # flat_list.extend(layer_metric_tuple[4]) # centers
+
         flat_list.extend(layer_metric_tuple[5]) # distances
         flat_list.extend(layer_metric_tuple[6]) # time1/2
 
@@ -339,14 +357,18 @@ import statistics as stat
 
 def balance_dataset(df: DataFrame) -> ('X: np.array', 'Y: np.array'):
     '''Balances an unbalanced dataset by ignoring elements from the majority label, so that majority-label data size = median of other cluster sizes.'''
+    # TODO
     return df
 
 def store_training_data(layer_name='CallTypeLayer', reference_layer_name='CallTypeLayer') -> '(X_train, Y_train, X_test, Y_test)':
     # load metrics data from disk
     data: Iterable = create_layer_metrics_training_data(layer_name=layer_name, reference_layer=reference_layer_name)
     
+    # first value yields N (number time windows) and M (number clusters in L_R)
+    N, M = next(data)
+
     # convert to X and Y
-    df = convert_metrics_data_to_dataframe(data, columns=COLUMNS, flattening_method=flatten_layer_metrics_datapoint)
+    df = convert_metrics_data_to_dataframe(data, columns=get_columns(N, M), flattening_method=flatten_layer_metrics_datapoint)
     
     # balance df
     df = balance_dataset(df)
@@ -354,7 +376,20 @@ def store_training_data(layer_name='CallTypeLayer', reference_layer_name='CallTy
     # shuffle
     df = df.sample(frac=1).reset_index(drop=True)
 
-    df.to_csv(f'_predictions/layer_metrics/data/{layer_name}.csv')
+    df.to_csv(f'data/{dataset}/ml_input/cross_context/{layer_name}.csv')
 
 
-store_training_data(layer_name='CategoryLayer', reference_layer_name='CountryLayer')
+layer_dependencies = [
+    ('CategoryLayer', 'CountryLayer'),
+    ('ViewsLayer', 'CountryLayer'),
+
+    ('ViewsLayer', 'CategoryLayer'),
+
+    ('LikesLayer', 'ViewsLayer'),
+    ('DislikesLayer', 'ViewsLayer'),
+    ('CommentCountLayer', 'ViewsLayer'),
+    ('TrendDelayLayer', 'ViewsLayer'),
+]
+
+for l, l_r in layer_dependencies:
+    store_training_data(layer_name=l, reference_layer_name=l_r)
