@@ -43,10 +43,64 @@ class Layer:
         self.n_clusters = len(clusters)
 
         self.relative_cluster_sizes = self.get_relative_cluster_sizes(clusters)
+        self.cluster_size_agg_metrics = self.get_size_min_max_avg_sum(clusters)
+        self.cluster_relative_size_agg_metrics = self.get_relative_size_min_max_avg_sum(clusters)
         self.entropy = self.get_entropy(clusters)
 
         self.centers = [c.center for c in clusters]
         self.distances_from_global_centers = self.get_distances_from_global_center(clusters)
+        self.cluster_center_distance_agg_metrics = self.get_center_distance_min_max_avg_sum(clusters)
+
+    def get_size_min_max_avg_sum(self, clusters: List[InternalCluster]) -> dict:
+        '''Returns min, max, avg, and sum of the cluster's absolute sizes.'''
+        if len(clusters) == 0:
+            return {'min':0, 'max':0, 'avg':0, 'sum':0}
+
+        min_ = clusters[0].size
+        max_ = clusters[0].size
+        sum_ = 0
+
+        for c in clusters:
+            value = c.size
+            min_ = min(min_, value)
+            max_ = max(max_, value)
+            sum_ += value
+        avg_ = sum_ / len(clusters)
+        return {'min': min_, 'max': max_, 'avg': avg_, 'sum': sum_}
+        
+    def get_relative_size_min_max_avg_sum(self, clusters: List[InternalCluster]) -> dict:
+        '''Returns min, max, avg, and sum of the cluster's relative sizes.'''
+        if len(clusters) == 0:
+            return {'min':0, 'max':0, 'avg':0, 'sum':0}
+
+        min_ = clusters[0].relative_size
+        max_ = clusters[0].relative_size
+        sum_ = 0
+
+        for c in clusters:
+            value = c.relative_size
+            min_ = min(min_, value)
+            max_ = max(max_, value)
+            sum_ += value
+        avg_ = sum_ / len(clusters)
+        return {'min': min_, 'max': max_, 'avg': avg_, 'sum': sum_}
+
+    def get_center_distance_min_max_avg_sum(self, clusters: List[InternalCluster]) -> dict:
+        '''Returns min, max, avg, and sum of the cluster's center distances.'''
+        if len(clusters) == 0:
+            return {'min':0, 'max':0, 'avg':0, 'sum':0}
+
+        min_ = clusters[0].global_center_distance
+        max_ = clusters[0].global_center_distance
+        sum_ = 0
+
+        for c in clusters:
+            value = c.global_center_distance
+            min_ = min(min_, value)
+            max_ = max(max_, value)
+            sum_ += value
+        avg_ = sum_ / len(clusters)
+        return {'min': min_, 'max': max_, 'avg': avg_, 'sum': sum_}
 
     def get_relative_cluster_sizes(self, clusters: List[InternalCluster]):
         return [c.relative_size for c in clusters]
