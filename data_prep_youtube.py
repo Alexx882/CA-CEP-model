@@ -48,8 +48,8 @@ layers = [
     ['TrendDelayLayer', 'trend_delay'],
 ]
 
-for layer in layers:
-    store_metrics_for_clusters(layer[0], layer[1])
+# for layer in layers:
+#     store_metrics_for_clusters(layer[0], layer[1])
 
 
 COLUMNS = ['cluster_size', 'cluster_variance', 'cluster_density', 'cluster_import1', 'cluster_import2', 
@@ -179,8 +179,8 @@ def store_training_data(layer_name: str):
     df.to_csv(f'data/{dataset}/ml_input/single_context/{layer_name}.csv')
 
 
-for name, _ in layers:
-    store_training_data(layer_name=name)
+# for name, _ in layers:
+#     store_training_data(layer_name=name)
 
 
 #######################
@@ -229,11 +229,11 @@ def store_metrics_for_layers(layer_name: str = 'CallTypeLayer', feature_names: L
         file.write(json.dumps([l.__dict__ for l in all_layers]))
 
 
-for layer in layers:
-    try:
-        store_metrics_for_layers(layer[0], layer[1])
-    except FileNotFoundError:
-        pass
+# for layer in layers:
+#     try:
+#         store_metrics_for_layers(layer[0], layer[1])
+#     except FileNotFoundError:
+#         pass
 
 
 from typing import List
@@ -376,7 +376,7 @@ def store_training_data(layer_name='CallTypeLayer', reference_layer_name='CallTy
     # shuffle
     df = df.sample(frac=1).reset_index(drop=True)
 
-    df.to_csv(f'data/{dataset}/ml_input/cross_context/{layer_name}.csv')
+    df.to_csv(f'data/{dataset}/ml_input/cross_context/{layer_name}_{reference_layer_name}.csv')
 
 
 layer_dependencies = [
@@ -392,4 +392,5 @@ layer_dependencies = [
 ]
 
 for l, l_r in layer_dependencies:
+    print(f"calculating for {l} with L_R='{l_r}'")
     store_training_data(layer_name=l, reference_layer_name=l_r)

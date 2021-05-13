@@ -138,6 +138,72 @@ class TestLayer(unittest.TestCase):
         self.assertEqual(l.n_nodes, 5)
         self.assertEqual(l.n_clusters, 2)
 
+    def test__create_from_time_window__1d_clusters__correct_size_aggregate_metrics(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("2", {"feature1":5,"feature2":5})
+        tw.add_node_to_cluster("2", {"feature1":7})
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1'], global_cluster_centers={'1': (1,0), '2': (6.5,5)})
+
+        self.assertEqual(l.cluster_size_agg_metrics, {'min':2, 'max':3, 'sum':5, 'avg':2.5})
+        self.assertEqual(l.cluster_relative_size_agg_metrics, {'min':2/5, 'max':3/5, 'sum':1, 'avg':(1/2)})
+
+    def test__create_from_time_window__2d_clusters__correct_size_aggregate_metrics(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":1})
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":2})
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":2})
+        tw.add_node_to_cluster("2", {"feature1":5,"feature2":5})
+        tw.add_node_to_cluster("2", {"feature1":7,"feature2":4})
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1', 'feature2'], global_cluster_centers={'1': (1,1), '2': (6.5,5)})
+
+        self.assertEqual(l.cluster_size_agg_metrics, {'min':2, 'max':3, 'sum':5, 'avg':2.5})
+        self.assertEqual(l.cluster_relative_size_agg_metrics, {'min':2/5, 'max':3/5, 'sum':1, 'avg':(1/2)})
+                
+    def test__create_from_time_window__1d_clusters__correct_center_distance_aggregate_metrics(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("1", {"feature1":1})
+        tw.add_node_to_cluster("2", {"feature1":5,"feature2":5})
+        tw.add_node_to_cluster("2", {"feature1":7})
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1'], global_cluster_centers={'1': (1.1,0), '2': (6.5,0)})
+        expected = {'min':0.1, 'max':0.5, 'sum':0.6, 'avg':0.3}
+
+        self.assertEqual(len(l.cluster_center_distance_agg_metrics.items()), 4)
+        for k in ['min', 'max', 'sum', 'avg']:
+            self.assertAlmostEqual(l.cluster_center_distance_agg_metrics[k], expected[k])
+
+    def test__create_from_time_window__2d_clusters__correct_center_distance_aggregate_metrics(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":1})
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":2})
+        tw.add_node_to_cluster("1", {"feature1":1,"feature2":2})
+        tw.add_node_to_cluster("2", {"feature1":5,"feature2":5})
+        tw.add_node_to_cluster("2", {"feature1":7,"feature2":4})
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1', 'feature2'], global_cluster_centers={'1': (1,1), '2': (6.5,5)})
+        expected = {'min':2/3, 'max':sqrt(.5), 'sum':sqrt(.5)+2/3, 'avg':(sqrt(.5)+2/3)/2}        
+
+        self.assertEqual(len(l.cluster_center_distance_agg_metrics.items()), 4)
+        for k in ['min', 'max', 'sum', 'avg']:
+            self.assertAlmostEqual(l.cluster_center_distance_agg_metrics[k], expected[k])
+
+    def test__create_from_time_window__empty_layer__correct_size_and_centerdist_aggregate_metrics(self):
+        tw = TimeWindow("KW1", "uc", "uct", "ln")
+
+        l = Layer.create_from_time_window(tw, feature_names=['feature1'], global_cluster_centers={'1': (1,0), '2': (6.5,5)})
+        expected = {'min':0, 'max':0, 'sum':0, 'avg':0}
+
+        self.assertEqual(l.cluster_size_agg_metrics, expected)
+        self.assertEqual(l.cluster_relative_size_agg_metrics, expected)
+        self.assertEqual(l.cluster_center_distance_agg_metrics, expected)
+
     def test__create_from_time_window__1d_clusters_correct_centers(self):
         tw = TimeWindow("KW1", "uc", "uct", "ln")
         tw.add_node_to_cluster("1", {"feature1":1,"feature2":1})
