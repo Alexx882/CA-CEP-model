@@ -15,18 +15,21 @@ import statistics as stat
 
 class TestCluster(unittest.TestCase):
     def test__init__single_cluster__all_values_set(self):
-        tw = self._get_timewindow_single_cluster_same_feature()
+        tw, centers = self._get_timewindow_single_cluster_same_feature()
 
-        c = Cluster("time_abc", "clusterId 1", list(tw.clusters.values())[0], "feature", nr_layer_nodes=3, layer_diversity=1)
+        c = Cluster("time_abc", "clusterId 1", list(tw.clusters.values())[0], "feature", nr_layer_nodes=3, layer_diversity=1, global_cluster_center=centers['1'])
         
         self.assertEqual("time_abc", c.time_window_id)
         self.assertEqual("clusterId 1", c.cluster_id)
         self.assert_cluster((3, 0, 0, 1, 1), c)
+        self.assertEqual(c.range_, 0)
+        self.assertEqual(c.center, (1,0))
+        self.assertEqual(c.global_center_distance, 0)
 
     def test__create_multiple_from_time_window__single_cluster__all_values_set(self):
-        tw = self._get_timewindow_single_cluster_same_feature()
-
-        clusters = list(Cluster.create_multiple_from_time_window(tw, "feature"))
+        tw, centers = self._get_timewindow_single_cluster_same_feature()
+        
+        clusters = list(Cluster.create_multiple_from_time_window(tw, "feature", centers))
         self.assertEqual(1, len(clusters))
         c = clusters[0]
 
@@ -35,9 +38,9 @@ class TestCluster(unittest.TestCase):
         self.assert_cluster((3, 0, 0, 1, 1), c)
 
     def test__create_multiple_from_time_window__two_clusters__correct_time_id_cluster_id(self):
-        tw = self._get_timewindow_two_clusters_same_feature()
-
-        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
+        tw, centers = self._get_timewindow_two_clusters_same_feature()
+        
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature", centers)
         expected = [("KW1", "1"), ("KW1", "2")]
 
         for c, exp in zip(clusters, expected):
@@ -45,18 +48,18 @@ class TestCluster(unittest.TestCase):
             self.assertEqual(exp[1], c.cluster_id)
 
     def test__create_multiple_from_time_window__two_clusters_same_features__correct_calculation(self):
-        tw = self._get_timewindow_two_clusters_same_feature()
+        tw, centers = self._get_timewindow_two_clusters_same_feature()
 
-        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature", centers)
         expected = [(3, 0, 0, 3/5, 1/2), (2, 0, 0, 2/5, 1/2)]
 
         for c, exp in zip(clusters, expected):
             self.assert_cluster(exp, c)
 
     def test__create_multiple_from_time_window__two_clusters_same_features_and_feature_names_list__correct_calculation(self):
-        tw = self._get_timewindow_two_clusters_same_feature()
+        tw, centers = self._get_timewindow_two_clusters_same_feature()
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["feature"])
+        clusters = Cluster.create_multiple_from_time_window(tw, ["feature"], centers)
         expected = [(3, 0, 0, 3/5, 1/2), (2, 0, 0, 2/5, 1/2)]
 
         for c, exp in zip(clusters, expected):
@@ -70,7 +73,9 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"feature":70})
         tw.add_node_to_cluster("2", {"feature":75})
 
-        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
+        centers = {'1':(2,0),'2':(72.5,0)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature", centers)
         # variance for stddev calculated with: http://www.alcula.com/calculators/statistics/variance/
         expected = [(3, sqrt(2.0/3), 2.0/3, 3/5, 1/2), (2, sqrt(6.25), 5.0/2, 2/5, 1/2)]
 
@@ -86,7 +91,9 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"feature":75})
         tw.clusters["3"] = []
 
-        clusters = Cluster.create_multiple_from_time_window(tw, "feature")
+        centers = {'1':(2,0),'2':(72.5,0),'3':(0,0)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, "feature", centers)
         expected = [(3, sqrt(2.0/3), 2.0/3, 3/5, 1/2), # diversity is still 2 as len=0 is ignored
                     (2, sqrt(6.25), 5.0/2, 2/5, 1/2),
                     (0, 0, 0, 0, 0)] # len 0 -> everything 0
@@ -101,8 +108,10 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("1", {"f1":1, "f2":1})
         tw.add_node_to_cluster("2", {"f1":70, "f2":70})
         tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+        
+        centers = {'1':(1,1),'2':(70,70)}
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"], centers)
         expected = [(3, 0, 0, 3/5, 1/2), (2, 0, 0, 2/5, 1/2)]
 
         for cluster, exp in zip(clusters, expected):
@@ -116,7 +125,9 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"f1":70, "f2":70})
         tw.add_node_to_cluster("2", {"f1":72, "f2":75})
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+        centers = {'1':(4/3,5/3),'2':(71,72.5)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"], centers)
         # stddev calculated manually as in: https://glenbambrick.com/tag/standard-distance/
         # area of the polygon calculated with: https://www.mathopenref.com/coordpolygonareacalc.html
         expected = [(3, sqrt(2/9+8/9), sqrt(1/3), 3/5, 1/2), (2, sqrt(7.25), sqrt(2*2+5*5)/2, 2/5, 1/2)] 
@@ -134,7 +145,9 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("1", {"f1":2, "f2":2}) # inside the convex hull
         tw.add_node_to_cluster("1", {"f1":2, "f2":1})
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+        centers = {'1':((1+3+1+2+2)/7,(3+2+2+2+2+1)/7)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"], centers)
 
         # stddev calculated manually as in: https://glenbambrick.com/tag/standard-distance/
         X = [0,1,3,0,1,2,2]
@@ -168,7 +181,9 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"f1":72, "f2":70})
         tw.add_node_to_cluster("2", {"f1":71, "f2":70})
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"])
+        centers = {'1':(1,2),'2':((70+75+72+71)/4,70)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1", "f2"], centers)
         # variance/stddev calculated as for 1d cluster (as f1/f2 is always the same)
         # scarcity calculated as for 1d cluster 
         expected = [(3, sqrt(2/3), 2/3, 3/7, 1/2), 
@@ -185,7 +200,9 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("2", {"f1":70})
         tw.add_node_to_cluster("2", {"f1":72})
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["f1"])
+        centers = {'1':(4/3, 0),'2':(71,0)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1"], centers)
         expected = [(1, (4/3,0)), (2, (71,0))] # (range, center)
 
         for c, exp in zip(clusters, expected):
@@ -199,8 +216,10 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("1", {"f1":1, "f2":3})
         tw.add_node_to_cluster("2", {"f1":70, "f2":70})
         tw.add_node_to_cluster("2", {"f1":72, "f2":75})
+        
+        centers = {'1':(4/3,5/3),'2':(71,72.5)}
 
-        clusters = Cluster.create_multiple_from_time_window(tw, ["f1","f2"])
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1","f2"], centers)
         # https://www.triangle-calculator.com/de/?what=vc&a=1&a1=1&3dd=3D&a2=&b=2&b1=1&b2=&c=1&c1=3&c2=&submit=Berechnen&3d=0
         # https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
         expected = [(1, (4/3,5/3)), (5.385165, (71,72.5))] # (range, center)
@@ -209,6 +228,57 @@ class TestCluster(unittest.TestCase):
             self.assertAlmostEqual(c.range_, exp[0], places=6)
             self.assertEqual(c.center, exp[1])
 
+    def test__create_multiple_from_time_window__2d_clusters__correct_linear_global_center_distance(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2})
+        tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+        tw.add_node_to_cluster("2", {"f1":72, "f2":75})
+        
+        centers = {'1':(1,1),'2':(71,70)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1","f2"], centers)
+        expected = [1, 2.5] # euclidean dist
+
+        for c, exp in zip(clusters, expected):
+            self.assertAlmostEqual(c.global_center_distance, exp, places=6)
+
+    def test__create_multiple_from_time_window__1d_clusters__correct_euclidean_global_center_distance(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1})
+        tw.add_node_to_cluster("1", {"f1":1})
+        tw.add_node_to_cluster("1", {"f1":1})
+        tw.add_node_to_cluster("2", {"f1":70})
+        tw.add_node_to_cluster("2", {"f1":72})
+        
+        centers = {'1':(1,0),'2':(70,0)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1"], centers)
+        # https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
+        expected = [0, 1] # euclidean dist
+
+        for c, exp in zip(clusters, expected):
+            self.assertAlmostEqual(c.global_center_distance, exp, places=6)
+            
+    def test__create_multiple_from_time_window__2d_clusters__correct_euclidean_global_center_distance(self):
+        tw = TimeWindow("CW1", "uc", "uct", "ln")
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2})
+        tw.add_node_to_cluster("1", {"f1":1, "f2":2})
+        tw.add_node_to_cluster("2", {"f1":70, "f2":70})
+        tw.add_node_to_cluster("2", {"f1":72, "f2":75})
+        
+        centers = {'1':(0,0),'2':(70,70)}
+
+        clusters = Cluster.create_multiple_from_time_window(tw, ["f1","f2"], centers)
+        # https://www.calculatorsoup.com/calculators/geometry-plane/distance-two-points.php
+        expected = [2.236068,  2.692582] # euclidean dist
+
+        for c, exp in zip(clusters, expected):
+            self.assertAlmostEqual(c.global_center_distance, exp, places=6)
+
+
 #region setup methods
     def _get_timewindow_single_cluster_same_feature(self) -> TimeWindow:
         '''Returns a TimeWindow with time=KW1 and three nodes in cluster 1, all feature values = 1.'''
@@ -216,7 +286,10 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("1", {"feature":1})
         tw.add_node_to_cluster("1", {"feature":1})
         tw.add_node_to_cluster("1", {"feature":1})
-        return tw
+
+        global_centers = {'1':(1,0)}
+
+        return tw, global_centers
 
     def _get_timewindow_two_clusters_same_feature(self) -> TimeWindow:
         '''
@@ -230,7 +303,10 @@ class TestCluster(unittest.TestCase):
         tw.add_node_to_cluster("1", {"feature":1})
         tw.add_node_to_cluster("2", {"feature":2})
         tw.add_node_to_cluster("2", {"feature":2})
-        return tw
+
+        global_centers = {'1':(1,0),'2':(2,0)}
+
+        return tw, global_centers
 
 #endregion setup methods
 
