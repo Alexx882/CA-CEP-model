@@ -190,6 +190,9 @@ class ClusterMetricsCalculator2D(ClusterMetricsCalculator):
         return float(area)
 
     def get_center(self):
+        if len(self.feature_values) == 0:
+            return (0, 0)
+            
         x = [f[0] for f in self.feature_values]
         y = [f[1] for f in self.feature_values] 
         centroid = (sum(x) / len(self.feature_values), sum(y) / len(self.feature_values))
