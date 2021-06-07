@@ -1,13 +1,8 @@
-# use_case = 'youtube'
-# layer_name = 'DislikesLayer' 
-# reference_layer_name = 'ViewsLayer'
-
 approach = 'cross_context'
 
 
 import pandas as pd
 from pandas import DataFrame
-
 
 
 import numpy as np
@@ -42,7 +37,10 @@ def remove_empty_community_class(df):
     # res = df.loc[df['evolution_label'] != -1.0]
     # res = res.reset_index(drop=True)
     # return res
+    import warnings
+    warnings.filterwarnings("ignore")
     df['evolution_label'] = df['evolution_label'].replace(-1.0, 0)
+    warnings.filterwarnings("default")
     return df
 
 
@@ -52,12 +50,10 @@ scaler = StandardScaler()
 
 
 from processing import DataSampler
-
 sampler = DataSampler()
 
 
 from sklearn.decomposition import PCA
-
 pca = PCA(n_components=8)
 
 
@@ -90,7 +86,8 @@ def export_model(model, model_name):
 
 def run():
     # from sklearn.naive_bayes import GaussianNB
-    # priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
+    # # priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
+    # priors = np.array([1,1]) / (1+1)
     # smoothing = 1E-9
 
     # clf = GaussianNB(priors=priors, var_smoothing=smoothing)
@@ -105,16 +102,15 @@ def run():
     # export_model(clf_p, 'nb_xp')
 
 
-    from sklearn.svm import SVC
-    c = 10
-    kernel = 'linear'
-    gamma = 'scale'
-    weights = None
+    from sklearn.svm import LinearSVC
+    c = 1
+    dual = False
+    tol = 1E-4
 
-    svc = SVC(C=c, kernel=kernel, gamma=gamma, class_weight=weights)
+    svc = LinearSVC(C=c, dual=dual, tol=tol)
     svc.fit(train_X, train_Y)
 
-    svc_p = SVC(C=c, kernel=kernel, gamma=gamma, class_weight=weights)
+    svc_p = LinearSVC(C=c, dual=dual, tol=tol)
     svc_p.fit(train_Xp, train_Y)
 
     print_report([svc, svc_p], [test_X, test_Xp], test_Y, ["svc X", "svc Xp"])
@@ -207,7 +203,6 @@ def run():
 
 
 
-
 if (__name__ == '__main__'):
 
     datasets = {'youtube':[
@@ -255,14 +250,15 @@ if (__name__ == '__main__'):
                 test_Y = testing[testing.columns[-1]]
 
                 try:
-                    train_X, train_Y = sampler.sample_fixed_size(train_X, train_Y, size=500)
+                    train_X, train_Y = sampler.sample_median_size(train_X, train_Y, max_size=10000)
                 except Exception as ex:
-                    print(f'### failed sampling for {layer_name} - {reference_layer_name}: ', ex)
+                    print(f'### failed median sampling for {layer_name} - {reference_layer_name}: {ex}')
+
 
                 train_Xp = pca.fit_transform(train_X)
                 test_Xp = pca.transform(test_X)
 
                 run()
             except Exception as e:
-                print('fail!', e)
+                print('### Exception occured:', e)
             

@@ -100,22 +100,21 @@ def run():
 
 
 
-    from sklearn.svm import SVC
-    c = 1
-    kernel = 'linear'
-    gamma = 'auto'
-    weights = None
+    # from sklearn.svm import LinearSVC
+    # c = 1
+    # dual = False
+    # tol = 1E-4
 
-    svc = SVC(C=c, kernel=kernel, gamma=gamma, class_weight=weights)
-    svc.fit(train_X, train_Y)
+    # svc = LinearSVC(C=c, dual=dual, tol=tol)
+    # svc.fit(train_X, train_Y)
 
-    svc_p = SVC(C=c, kernel=kernel, gamma=gamma, class_weight=weights)
-    svc_p.fit(train_Xp, train_Y)
+    # svc_p = LinearSVC(C=c, dual=dual, tol=tol)
+    # svc_p.fit(train_Xp, train_Y)
 
-    print_report([svc, svc_p], [test_X, test_Xp], test_Y, ["X", "Xp"])
+    # print_report([svc, svc_p], [test_X, test_Xp], test_Y, ["X", "Xp"])
 
-    export_model(svc, 'svc_x')
-    export_model(svc_p, 'svc_xp')
+    # export_model(svc, 'svc_x')
+    # export_model(svc_p, 'svc_xp')
 
 
 
@@ -184,22 +183,27 @@ def run():
 
 
 
-    # from sklearn.ensemble import AdaBoostClassifier
-    # base_estimator = None #SVC(kernel='linear')
-    # n_estimators = 50
-    # algo = 'SAMME.R'
-    # learning_rate = .3
+    from sklearn.ensemble import AdaBoostClassifier 
+    from sklearn.svm import LinearSVC
+    c = 1
+    dual = False
+    tol = 1E-4
 
-    # bc = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
-    # bc.fit(train_X, train_Y)
+    base_estimator = LinearSVC(C=c, dual=dual, tol=tol) # None #SVC(kernel='linear')
+    n_estimators = 50
+    algo = 'SAMME'
+    learning_rate = .3
 
-    # bc_p = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
-    # bc_p.fit(train_Xp, train_Y)
+    bc = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
+    bc.fit(train_X, train_Y)
 
-    # print_report([bc, bc_p], [test_X, test_Xp], test_Y, ["bb X", "bb Xp"])
+    bc_p = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
+    bc_p.fit(train_Xp, train_Y)
 
-    # export_model(bc, 'boost_x')
-    # export_model(bc_p, 'boost_xp')
+    print_report([bc, bc_p], [test_X, test_Xp], test_Y, ["bb X", "bb Xp"])
+
+    export_model(bc, 'boost_x')
+    export_model(bc_p, 'boost_xp')
 
 
 
@@ -250,11 +254,11 @@ if (__name__ == '__main__'):
                 test_Y = testing[testing.columns[-1]]
 
                 try:
-                    train_X, train_Y = sampler.sample_fixed_size(train_X, train_Y, size=4000)
+                    train_X, train_Y = sampler.sample_median_size(train_X, train_Y, max_size=10000)
                 except Exception as ex:
-                    print(f"### Failed sampling for {layer_name}: {ex}")
-
+                    print(f"### Failed median sampling for {layer_name}: {ex}")
                     
+
                 train_Xp = pca.fit_transform(train_X)
                 test_Xp = pca.transform(test_X)
 
