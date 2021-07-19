@@ -32,8 +32,11 @@ class DataSampler:
 
         return X, y
 
-    def sample_median_size(self, X, y: pd.Series) -> ('X', 'y'):
+    def sample_median_size(self, X, y: pd.Series, max_size:int=None) -> ('X', 'y'):
         '''Sample the median class size for all classes.'''
         median = int(y.value_counts().median())
+
+        if max_size is not None:
+            median = min(median, max_size)
         
         return self.sample_fixed_size(X, y, size=median)

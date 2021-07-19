@@ -15,6 +15,7 @@ for folder in [
     'ml_input/cross_context',
     'ml_output/single_context',
     'ml_output/cross_context',
+    'ml_output/cross_context_2stage',
     ]:
     Path(os.path.join(f'data/{dataset}/',folder)).mkdir(parents=True, exist_ok=True)
 
