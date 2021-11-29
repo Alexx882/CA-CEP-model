@@ -3,7 +3,9 @@
 **/__pycache__
 
 _predictions
-data/**
+data/** 
+# data_old contains data from first paper version
+data_old/**
 
 input/**
 output/**
