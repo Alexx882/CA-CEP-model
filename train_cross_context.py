@@ -17,8 +17,8 @@ def split_data(dataframe, test_dataset_frac=.2, shuffle=False) -> '(training_dat
     train = dataframe[:training_size].reset_index(drop=True)
     test = dataframe[training_size:].reset_index(drop=True)
 
-    y_train = train[train.columns[-1]]
-    y_test = test[test.columns[-1]]
+    y_train = train[train.columns[-4]]
+    y_test = test[test.columns[-4]]
   
     print(f"\nWorking with: {len(train)} training points + {len(test)} test points ({len(test)/(len(test)+len(train))} test ratio).")
     print(f"Label Occurrences: Total = {collections.Counter(y_train.tolist() + y_test.tolist())}, \n"\
@@ -86,8 +86,8 @@ def export_model(model, model_name):
 
 def run():
     # from sklearn.naive_bayes import GaussianNB
-    # # priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
-    # priors = np.array([1,1]) / (1+1)
+    # priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
+    # # priors = np.array([1,1]) / (1+1)
     # smoothing = 1E-9
 
     # clf = GaussianNB(priors=priors, var_smoothing=smoothing)
@@ -119,87 +119,87 @@ def run():
     export_model(svc_p, 'svc_xp')
 
 
-    # from sklearn.neighbors import KNeighborsClassifier
-    # n_neighbors = 30
-    # weights = 'uniform'
-    # algo = 'auto'
-    # leaf_size = 50
+    from sklearn.neighbors import KNeighborsClassifier
+    n_neighbors = 30
+    weights = 'uniform'
+    algo = 'auto'
+    leaf_size = 50
 
-    # knnc = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, algorithm=algo, leaf_size=leaf_size)
-    # knnc.fit(train_X, train_Y)
+    knnc = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, algorithm=algo, leaf_size=leaf_size)
+    knnc.fit(train_X, train_Y)
 
-    # knnc_p = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights,  algorithm=algo, leaf_size=leaf_size)
-    # knnc_p.fit(train_Xp, train_Y)
+    knnc_p = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights,  algorithm=algo, leaf_size=leaf_size)
+    knnc_p.fit(train_Xp, train_Y)
 
-    # print_report([knnc, knnc_p], [test_X, test_Xp], test_Y, ["knn X", "knn Xp"])
+    print_report([knnc, knnc_p], [test_X, test_Xp], test_Y, ["knn X", "knn Xp"])
 
-    # export_model(knnc, 'knn_x')
-    # export_model(knnc_p, 'knn_xp')
-
-
-    # from sklearn.tree import DecisionTreeClassifier 
-    # criterion = 'gini'
-    # splitter = 'random'
-    # max_depth = None
-    # min_samples_leaf = 2
-    # min_impurity_decrease = 1E-5 # impurity improvement needed to split
-    # ccp_alpha = 0
-
-    # seed=42
-
-    # dtc = DecisionTreeClassifier(criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, random_state=seed)
-    # dtc.fit(train_X, train_Y)
-
-    # dtc_p = DecisionTreeClassifier(criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, random_state=seed)
-    # dtc_p.fit(train_Xp, train_Y)
-
-    # print_report([dtc, dtc_p], [test_X, test_Xp], test_Y, ["dt X", "dt Xp"])
-
-    # export_model(dtc, 'dt_x')
-    # export_model(dtc_p, 'dt_xp')
+    export_model(knnc, 'knn_x')
+    export_model(knnc_p, 'knn_xp')
 
 
-    # from sklearn.ensemble import RandomForestClassifier
-    # n_estimators = 50
-    # criterion = 'gini'
-    # max_depth = None
-    # min_samples_leaf = 2
-    # min_impurity_decrease= 1E-5
-    # bootstrap=True
+    from sklearn.tree import DecisionTreeClassifier 
+    criterion = 'gini'
+    splitter = 'random'
+    max_depth = None
+    min_samples_leaf = 2
+    min_impurity_decrease = 1E-5 # impurity improvement needed to split
+    ccp_alpha = 0
 
-    # seed=42
+    seed=42
 
-    # rfc = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, bootstrap=bootstrap, random_state=seed)
-    # rfc.fit(train_X, train_Y)
+    dtc = DecisionTreeClassifier(criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, random_state=seed)
+    dtc.fit(train_X, train_Y)
 
-    # rfc_p = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, bootstrap=bootstrap, random_state=seed)
-    # rfc_p.fit(train_Xp, train_Y)
+    dtc_p = DecisionTreeClassifier(criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, random_state=seed)
+    dtc_p.fit(train_Xp, train_Y)
 
-    # print_report([rfc, rfc_p], [test_X, test_Xp], test_Y, ["rf X", "rf Xp"])
+    print_report([dtc, dtc_p], [test_X, test_Xp], test_Y, ["dt X", "dt Xp"])
 
-    # export_model(rfc, 'rf_x')
-    # export_model(rfc_p, 'rf_xp')
+    export_model(dtc, 'dt_x')
+    export_model(dtc_p, 'dt_xp')
+
+
+    from sklearn.ensemble import RandomForestClassifier
+    n_estimators = 100
+    criterion = 'gini'
+    max_depth = None
+    min_samples_leaf = 2
+    min_impurity_decrease= 1E-5
+    bootstrap=True
+
+    seed=42
+
+    rfc = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, bootstrap=bootstrap, random_state=seed)
+    rfc.fit(train_X, train_Y)
+
+    rfc_p = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, bootstrap=bootstrap, random_state=seed)
+    rfc_p.fit(train_Xp, train_Y)
+
+    print_report([rfc, rfc_p], [test_X, test_Xp], test_Y, ["rf X", "rf Xp"])
+
+    export_model(rfc, 'rf_x')
+    export_model(rfc_p, 'rf_xp')
 
 
 
-    # from sklearn.svm import SVC
-    # from sklearn.ensemble import AdaBoostClassifier
+    from sklearn.svm import SVC
+    from sklearn.ensemble import AdaBoostClassifier
 
-    # base_estimator = None# SVC(kernel='linear')
-    # n_estimators= 50
-    # algo = 'SAMME.R'
-    # learning_rate = .3
+    base_estimator = None# SVC(kernel='linear')
+    n_estimators= 50
+    algo = 'SAMME.R'
+    learning_rate = .3
 
-    # bc = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
-    # bc.fit(train_X, train_Y)
+    bc = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
+    bc.fit(train_X, train_Y)
 
-    # bc_p = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
-    # bc_p.fit(train_Xp, train_Y)
+    bc_p = AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, algorithm=algo, learning_rate=learning_rate)
+    bc_p.fit(train_Xp, train_Y)
 
-    # print_report([bc, bc_p], [test_X, test_Xp], test_Y, ["b X", "b Xp"])
+    print_report([bc, bc_p], [test_X, test_Xp], test_Y, ["b X", "b Xp"])
 
-    # export_model(bc, 'boost_x')
-    # export_model(bc_p, 'boost_xp')
+    export_model(bc, 'boost_x')
+    export_model(bc_p, 'boost_xp')
 
 
 
@@ -219,12 +219,12 @@ if (__name__ == '__main__'):
         'taxi':[
         ('CallTypeLayer', 'DayTypeLayer'),
 
-        ('OriginCallLayer', 'CallTypeLayer'),
-        ('OriginStandLayer', 'CallTypeLayer'),
+        # ('OriginCallLayer', 'CallTypeLayer'),
+        # ('OriginStandLayer', 'CallTypeLayer'),
 
-        ('TaxiIdLayer', 'OriginStandLayer'),
-        ('StartLocationLayer', 'OriginStandLayer'),
-        ('EndLocationLayer', 'OriginStandLayer'),
+        # ('TaxiIdLayer', 'OriginStandLayer'),
+        # ('StartLocationLayer', 'OriginStandLayer'),
+        # ('EndLocationLayer', 'OriginStandLayer'),
 
         ('StartLocationLayer', 'DayTypeLayer'),
         ('EndLocationLayer', 'DayTypeLayer'),
@@ -243,16 +243,17 @@ if (__name__ == '__main__'):
                 training = remove_empty_community_class(training)
                 testing = remove_empty_community_class(testing)
 
-                train_X = scaler.fit_transform(training)[:,:-1] # all except y
-                train_Y = training[training.columns[-1]]
+                train_X = scaler.fit_transform(training)[:,:-4] # all except y
+                train_Y = training[training.columns[-4]]
 
-                test_X = scaler.transform(testing)[:,:-1] # all except y
-                test_Y = testing[testing.columns[-1]]
+                test_X = scaler.transform(testing)[:,:-4] # all except y
+                test_Y = testing[testing.columns[-4]]
 
                 try:
                     train_X, train_Y = sampler.sample_median_size(train_X, train_Y, max_size=10000)
                 except Exception as ex:
                     print(f'### failed median sampling for {layer_name} - {reference_layer_name}: {ex}')
+                    continue
 
 
                 train_Xp = pca.fit_transform(train_X)
