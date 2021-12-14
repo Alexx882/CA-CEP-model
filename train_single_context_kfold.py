@@ -5,36 +5,36 @@ import numpy as np
 import collections
 
 
-def split_data(dataframe, test_dataset_frac=.2, shuffle=False) -> '(training_data, test_data)':
-    if shuffle:
-        dataframe = dataframe.sample(frac=1).reset_index(drop=True)
+from pandas import DataFrame
+from typing import Iterator, Tuple, List, Dict
 
-    training_size = int(len(dataframe) * (1-test_dataset_frac))
-
-    train = dataframe[:training_size]
-    test = dataframe[training_size:]
-
-    y_train = train[train.columns[-1]]
-    y_test = test[test.columns[-1]]
-  
-    print(f"\nWorking with: {len(train)} training points + {len(test)} test points ({len(test)/(len(test)+len(train))} test ratio).")
-    print(f"Label Occurrences: Total = {collections.Counter(y_train.tolist() + y_test.tolist())}, \n" \
-          f"\tTraining = {collections.Counter(y_train)}, \n" \
-          f"\tTest = {collections.Counter(y_test)}")
-    # try:
-    #     print(f"Label Majority Class: Training = {stat.mode(Y_train)}, Test = {stat.mode(Y_test)}\n")
-    # except stat.StatisticsError:
-    #     print(f"Label Majority Class: no unique mode; found 2 equally common values")
-
-    return train, test
+def chunks(lst: DataFrame, n) -> Iterator[DataFrame]:
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 
+def get_k_folds(dataframe: DataFrame, k: int = 10) -> Iterator[Tuple[DataFrame, DataFrame]]:
+    """
+    Folds the dataframe k times and returns each fold for training
+    :returns: k-1 folds for training, 1 fold for testing
+    """
+    
+    fold_size = int(len(dataframe) / k)
+    folds = [c for c in chunks(dataframe, fold_size)]
+    
+    if len(folds) != k:
+        print(f"#folds={len(folds)} do not match k={k}! "\
+            f"Merging last 2 folds with sizes={len(folds[-2])}, {len(folds[-1])}")
+        folds[-2:] = [pd.concat([folds[-2], folds[-1]])]
+        print(f"#folds={len(folds)}, new size last fold={len(folds[-1])}")
+        
+    for i in range(k):
+        yield pd.concat([f for (idx, f) in enumerate(folds) if idx != i]), folds[i]
+        
 
 def remove_empty_community_class(df):
     '''Removes evolution_label -1 from dataset indicating the community stays empty.'''
-    # res = df.loc[df['evolution_label'] != -1.0]
-    # res = res.reset_index(drop=True)
-    # return res
     import warnings
     warnings.filterwarnings("ignore")
     df['evolution_label'] = df['evolution_label'].replace(-1.0, 0)
@@ -42,34 +42,36 @@ def remove_empty_community_class(df):
     return df
 
 
-
 from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
+from sklearn.decomposition import PCA
 
-
+from entities.repeated_training_result import RepeatedTrainingResult
+repeated_result: Dict[str, RepeatedTrainingResult] = {} 
 
 from processing import DataSampler
 sampler = DataSampler()
 
 
-
-from sklearn.decomposition import PCA
-pca = PCA(n_components=8)
-
-
-
 import sklearn.metrics
 
+def export_report(layer_name: str):
+    '''Exports the global RepeatedTrainingResult with all contents.'''
+    fpath = f'data/{use_case}/ml_output/{approach}'
+    Path(fpath).mkdir(parents=True, exist_ok=True)
+
+    with open(f"{fpath}/results.csv", 'a') as file:
+        for model_name, result in repeated_result.items():
+            file.write(f"{layer_name}, {model_name}, {result.get_all_metrics_as_str()}\n")
+
+
 def print_report(clfs: list, test_Xs: list, test_Y: 'y', titles: list):
-    """
-    Prints all reports.
-    :param clfs: list of classifiers to evaluate
-    :param test_Xs: list of test_X for the corresponding classifier at idx
-    :param test_Y: true classes:param titles: list of titles for the classifiers at idx
-    """
+    '''Adds the classification report result to the global RepeatedTrainingResult.'''
     for clf, test_X, title in zip(clfs, test_Xs, titles):
         pred_Y = clf.predict(test_X)        
-        print(f"### {layer_name} {title} ###\n", sklearn.metrics.classification_report(y_true=test_Y, y_pred=pred_Y))
+        cls_report: dict = sklearn.metrics.classification_report(y_true=test_Y, y_pred=pred_Y, output_dict=True)
+        if title not in repeated_result:
+            repeated_result[title] = RepeatedTrainingResult()
+        repeated_result[title].add_classification_report(cls_report)
 
 
 import pickle 
@@ -95,8 +97,8 @@ def run():
 
     print_report([clf, clf_p], [test_X, test_Xp], test_Y, ["nb X", "nb Xp"])
 
-    export_model(clf, 'nb_x')
-    export_model(clf_p, 'nb_xp')
+    # export_model(clf, 'nb_x')
+    # export_model(clf_p, 'nb_xp')
 
 
 
@@ -111,10 +113,10 @@ def run():
     svc_p = LinearSVC(C=c, dual=dual, tol=tol)
     svc_p.fit(train_Xp, train_Y)
 
-    print_report([svc, svc_p], [test_X, test_Xp], test_Y, ["X", "Xp"])
+    print_report([svc, svc_p], [test_X, test_Xp], test_Y, ["svc X", "svc Xp"])
 
-    export_model(svc, 'svc_x')
-    export_model(svc_p, 'svc_xp')
+    # export_model(svc, 'svc_x')
+    # export_model(svc_p, 'svc_xp')
 
 
 
@@ -132,8 +134,8 @@ def run():
 
     print_report([knnc, knnc_p], [test_X, test_Xp], test_Y, ["knn X", "knn Xp"])
 
-    export_model(knnc, 'knn_x')
-    export_model(knnc_p, 'knn_xp')
+    # export_model(knnc, 'knn_x')
+    # export_model(knnc_p, 'knn_xp')
 
 
 
@@ -155,8 +157,8 @@ def run():
 
     print_report([dtc, dtc_p], [test_X, test_Xp], test_Y, ["dt X", "dt Xp"])
 
-    export_model(dtc, 'dt_x')
-    export_model(dtc_p, 'dt_xp')
+    # export_model(dtc, 'dt_x')
+    # export_model(dtc_p, 'dt_xp')
 
 
 
@@ -178,8 +180,8 @@ def run():
 
     print_report([rfc, rfc_p], [test_X, test_Xp], test_Y, ["rf X", "rf Xp"])
 
-    export_model(rfc, 'rf_x')
-    export_model(rfc_p, 'rf_xp')
+    # export_model(rfc, 'rf_x')
+    # export_model(rfc_p, 'rf_xp')
 
 
 
@@ -189,7 +191,7 @@ def run():
     dual = False
     tol = 1E-4
 
-    base_estimator = None # LinearSVC(C=c, dual=dual, tol=tol) # None # SVC(kernel='linear')
+    base_estimator = None
     n_estimators = 50
     algo = 'SAMME.R'
     learning_rate = .3
@@ -202,9 +204,8 @@ def run():
 
     print_report([bc, bc_p], [test_X, test_Xp], test_Y, ["bb X", "bb Xp"])
 
-    export_model(bc, 'boost_x')
-    export_model(bc_p, 'boost_xp')
-
+    # export_model(bc, 'boost_x')
+    # export_model(bc_p, 'boost_xp')
 
 
 if (__name__ == '__main__'):
@@ -214,24 +215,24 @@ if (__name__ == '__main__'):
     use_case_data = {
         'youtube':
             [l[0] for l in [
-            ['CategoryLayer', 'category_id'],
-            ['ViewsLayer', 'views'],
+            # ['CategoryLayer', 'category_id'],
+            # ['ViewsLayer', 'views'],
             ['LikesLayer', 'likes'],
-            ['DislikesLayer', 'dislikes'],
-            ['CommentCountLayer', 'comment_count'],
-            ['CountryLayer', 'country_id'],  
-            ['TrendDelayLayer', 'trend_delay'],
+            # ['DislikesLayer', 'dislikes'],
+            # ['CommentCountLayer', 'comment_count'],
+            # ['CountryLayer', 'country_id'],  
+            # ['TrendDelayLayer', 'trend_delay'],
             ]],
         'taxi':
             [l[0] for l in [
-            ['CallTypeLayer', 'call_type'],
-            ['DayTypeLayer', 'day_type'],
-            # ['TaxiIdLayer', 'taxi_id'],
+            # ['CallTypeLayer', 'call_type'],
+            # ['DayTypeLayer', 'day_type'],
+            ## ['TaxiIdLayer', 'taxi_id'],
 
-            # ['OriginCallLayer', ('call_type', 'origin_call')],
-            # ['OriginStandLayer', ('call_type', 'origin_stand')],
+            ## ['OriginCallLayer', ('call_type', 'origin_call')],
+            ## ['OriginStandLayer', ('call_type', 'origin_stand')],
             ['StartLocationLayer', ('start_location_lat', 'start_location_long')],
-            ['EndLocationLayer', ('end_location_lat', 'end_location_long')],
+            # ['EndLocationLayer', ('end_location_lat', 'end_location_long')],
             ]]
     }
 
@@ -241,30 +242,36 @@ if (__name__ == '__main__'):
 
             try:
                 df: DataFrame = pd.read_csv(f'data/{use_case}/ml_input/single_context/{layer_name}.csv', index_col=0)
+                
+                df = remove_empty_community_class(df)
 
-                training, testing = split_data(df, shuffle=False)
+                # remove the new column containing abs.val. for regression
+                df = df[df.columns[:-1]]
 
-                training = remove_empty_community_class(training)
-                testing = remove_empty_community_class(testing)
+                for idx, (training, testing) in enumerate(get_k_folds(df, k=10)):
+                    print(idx)
 
-                # TODO change index to consider added columns
-                train_X = scaler.fit_transform(training)[:,:-1] # all except y
-                train_Y = training[training.columns[-1]]
+                    scaler = StandardScaler()
+                    train_X = scaler.fit_transform(training)[:,:-1] # all except y
+                    train_Y = training[training.columns[-1]]
 
-                test_X = scaler.transform(testing)[:,:-1] # all except y
-                test_Y = testing[testing.columns[-1]]
+                    test_X = scaler.transform(testing)[:,:-1] # all except y
+                    test_Y = testing[testing.columns[-1]]
 
-                try:
-                    train_X, train_Y = sampler.sample_median_size(train_X, train_Y, max_size=10000)
-                except Exception as ex:
-                    print(f"### Failed median sampling for {layer_name}: {ex}")
-                    
+                    try:
+                        train_X, train_Y = sampler.sample_median_size(train_X, train_Y, max_size=10000)
+                    except Exception as ex:
+                        print(f"### Failed median sampling for {layer_name}: {ex}")
+                        continue # dont train with full dataset fold
+                        
+                    pca = PCA(n_components=8)
+                    train_Xp = pca.fit_transform(train_X)
+                    test_Xp = pca.transform(test_X)
 
-                train_Xp = pca.fit_transform(train_X)
-                test_Xp = pca.transform(test_X)
+                    run() # for layer for fold
 
-                run()
+                print(f"Exporting result for {layer_name}")
+                export_report(layer_name)
+
             except Exception as e:
                 print('### Exception occured:', e)
-
-            
