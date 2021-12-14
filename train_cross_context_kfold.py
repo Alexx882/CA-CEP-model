@@ -1,5 +1,9 @@
+approach = 'cross_context'
+
+
 import pandas as pd
 from pandas import DataFrame
+
 
 import numpy as np
 import collections
@@ -31,7 +35,7 @@ def get_k_folds(dataframe: DataFrame, k: int = 10) -> Iterator[Tuple[DataFrame, 
         
     for i in range(k):
         yield pd.concat([f for (idx, f) in enumerate(folds) if idx != i]), folds[i]
-        
+       
 
 def remove_empty_community_class(df):
     '''Removes evolution_label -1 from dataset indicating the community stays empty.'''
@@ -42,12 +46,13 @@ def remove_empty_community_class(df):
     return df
 
 
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
 from entities.repeated_training_result import RepeatedTrainingResult
-# contains the k-fold classification reports for a single layer with key=model
-# it is reset with each layer iteration
+# contains the k-fold classification reports for a single layer-pair with key=model
+# it is reset with each layer_combination iteration
 repeated_result: Dict[str, RepeatedTrainingResult] = {} 
 
 from processing import DataSampler
@@ -56,52 +61,53 @@ sampler = DataSampler()
 
 import sklearn.metrics
 
-def export_report(layer_name: str):
+def export_report(layer_name: str, reference_layer_name: str):
     '''Exports the global RepeatedTrainingResult with all contents.'''
     fpath = f'data/{use_case}/ml_output/{approach}'
     Path(fpath).mkdir(parents=True, exist_ok=True)
 
     with open(f"{fpath}/results.csv", 'a') as file:
         for model_name, result in repeated_result.items():
-            file.write(f"{layer_name}, {model_name}, {result.get_all_metrics_as_str()}\n")
+            file.write(f"{layer_name}, {reference_layer_name}, {model_name}, {result.get_all_metrics_as_str()}\n")
 
 
 def print_report(clfs: list, test_Xs: list, test_Y: 'y', titles: list):
-    '''Adds the classification report result to the global RepeatedTrainingResult.'''
+    """Adds the classification report to the global RepeatedTrainingResult."""
     for clf, test_X, title in zip(clfs, test_Xs, titles):
         pred_Y = clf.predict(test_X)        
         cls_report: dict = sklearn.metrics.classification_report(y_true=test_Y, y_pred=pred_Y, output_dict=True)
+        
         if title not in repeated_result:
             repeated_result[title] = RepeatedTrainingResult()
         repeated_result[title].add_classification_report(cls_report)
 
 
-import pickle 
+import pickle
 from pathlib import Path
 
 def export_model(model, model_name):
     fpath = f'data/{use_case}/ml_output/{approach}/{layer_name}'
     Path(fpath).mkdir(parents=True, exist_ok=True)
-    with open(f'{fpath}/{layer_name}_{model_name}.model', 'wb') as f:
+    with open(f'{fpath}/{layer_name}_{reference_layer_name}_{model_name}.model', 'wb') as f:
         pickle.dump(model, f)
 
 
 def run():
-    from sklearn.naive_bayes import GaussianNB
-    priors = None #np.array([19,16,16,74,74]) / (19+16+16+74+74)
-    smoothing = 0
+    # from sklearn.naive_bayes import GaussianNB
+    # priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
+    # priors = np.array([1,1]) / (1+1)
+    # smoothing = 1E-9
 
-    clf = GaussianNB(priors=priors, var_smoothing=smoothing)
-    clf.fit(train_X, train_Y)
+    # clf = GaussianNB(priors=priors, var_smoothing=smoothing)
+    # clf.fit(train_X, train_Y)
 
-    clf_p = GaussianNB(priors=priors, var_smoothing=smoothing)
-    clf_p.fit(train_Xp, train_Y)
+    # clf_p = GaussianNB(priors=priors, var_smoothing=smoothing)
+    # clf_p.fit(train_Xp, train_Y)
 
-    print_report([clf, clf_p], [test_X, test_Xp], test_Y, ["nb X", "nb Xp"])
+    # print_report([clf, clf_p], [test_X, test_Xp], test_Y, ["nb X", "nb Xp"])
 
     # export_model(clf, 'nb_x')
     # export_model(clf_p, 'nb_xp')
-
 
 
     from sklearn.svm import LinearSVC
@@ -121,12 +127,11 @@ def run():
     # export_model(svc_p, 'svc_xp')
 
 
-
     from sklearn.neighbors import KNeighborsClassifier
-    n_neighbors = 20
+    n_neighbors = 30
     weights = 'uniform'
     algo = 'auto'
-    leaf_size = 30
+    leaf_size = 50
 
     knnc = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, algorithm=algo, leaf_size=leaf_size)
     knnc.fit(train_X, train_Y)
@@ -140,16 +145,15 @@ def run():
     # export_model(knnc_p, 'knn_xp')
 
 
-
     from sklearn.tree import DecisionTreeClassifier 
     criterion = 'gini'
     splitter = 'random'
-    max_depth = 10
-    min_samples_leaf = 1
+    max_depth = None
+    min_samples_leaf = 2
     min_impurity_decrease = 1E-5 # impurity improvement needed to split
-    ccp_alpha = 1E-3
+    ccp_alpha = 0
 
-    seed = 42
+    seed=42
 
     dtc = DecisionTreeClassifier(criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, random_state=seed)
     dtc.fit(train_X, train_Y)
@@ -163,16 +167,15 @@ def run():
     # export_model(dtc_p, 'dt_xp')
 
 
-
     from sklearn.ensemble import RandomForestClassifier
     n_estimators = 100
     criterion = 'gini'
     max_depth = None
     min_samples_leaf = 2
-    min_impurity_decrease = 1E-5
+    min_impurity_decrease= 1E-5
     bootstrap=True
 
-    seed = 42
+    seed=42
 
     rfc = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_impurity_decrease=min_impurity_decrease, bootstrap=bootstrap, random_state=seed)
     rfc.fit(train_X, train_Y)
@@ -186,11 +189,10 @@ def run():
     # export_model(rfc_p, 'rf_xp')
 
 
-
-    from sklearn.ensemble import AdaBoostClassifier 
+    from sklearn.ensemble import AdaBoostClassifier
 
     base_estimator = None
-    n_estimators = 50
+    n_estimators= 50
     algo = 'SAMME.R'
     learning_rate = .3
 
@@ -208,49 +210,49 @@ def run():
 
 if (__name__ == '__main__'):
 
-    approach = 'single_context'
+    datasets = {'youtube':[
+        # ('CategoryLayer', 'CountryLayer'),
+        # ('ViewsLayer', 'CountryLayer'),
 
-    use_case_data = {
-        'youtube':
-            [l[0] for l in [
-            # ['CategoryLayer', 'category_id'],
-            # ['ViewsLayer', 'views'],
-            ['LikesLayer', 'likes'],
-            # ['DislikesLayer', 'dislikes'],
-            # ['CommentCountLayer', 'comment_count'],
-            # ['CountryLayer', 'country_id'],  
-            # ['TrendDelayLayer', 'trend_delay'],
-            ]],
-        'taxi':
-            [l[0] for l in [
-            # ['CallTypeLayer', 'call_type'],
-            # ['DayTypeLayer', 'day_type'],
-            ## ['TaxiIdLayer', 'taxi_id'],
+        # ('ViewsLayer', 'CategoryLayer'),
 
-            ## ['OriginCallLayer', ('call_type', 'origin_call')],
-            ## ['OriginStandLayer', ('call_type', 'origin_stand')],
-            ['StartLocationLayer', ('start_location_lat', 'start_location_long')],
-            # ['EndLocationLayer', ('end_location_lat', 'end_location_long')],
-            ]]
+        # ('LikesLayer', 'ViewsLayer'),
+        # ('DislikesLayer', 'ViewsLayer'),
+        # ('CommentCountLayer', 'ViewsLayer'),
+        ('TrendDelayLayer', 'ViewsLayer'),
+        ],
+        'taxi':[
+        ('CallTypeLayer', 'DayTypeLayer'),
+
+        ## ('OriginCallLayer', 'CallTypeLayer'),
+        ## ('OriginStandLayer', 'CallTypeLayer'),
+
+        ## ('TaxiIdLayer', 'OriginStandLayer'),
+        ## ('StartLocationLayer', 'OriginStandLayer'),
+        ## ('EndLocationLayer', 'OriginStandLayer'),
+
+        # ('StartLocationLayer', 'DayTypeLayer'),
+        # ('EndLocationLayer', 'DayTypeLayer'),
+        ]
     }
 
-    for use_case, layer_names in use_case_data.items():
-        for layer_name in layer_names:
-            print(use_case, layer_name)
-
+    for use_case, layer_combinations in datasets.items():
+        for layer_name, reference_layer_name in layer_combinations:
+            print(use_case, layer_name, reference_layer_name) 
+            
             try:
-                df: DataFrame = pd.read_csv(f'data/{use_case}/ml_input/single_context/{layer_name}.csv', index_col=0)
-                
+                df: DataFrame = pd.read_csv(f'data/{use_case}/ml_input/cross_context/{layer_name}_{reference_layer_name}.csv', index_col=0)
+
                 df = remove_empty_community_class(df)
+                
+                # remove the new columns containing previous and future sizes
+                df = df[df.columns[:-3]]
 
-                # remove the new column containing abs.val. for regression
-                df = df[df.columns[:-1]]
-
-                # reset results for this layer's training
+                # reset results for this layer_combination's training
                 repeated_result = {}
 
-                for idx, (training, testing) in enumerate(get_k_folds(df, k=10)):
-                    print(idx)
+                for fold_nr, (training, testing) in enumerate(get_k_folds(df, k=10)):
+                    print(fold_nr)
 
                     scaler = StandardScaler()
                     train_X = scaler.fit_transform(training)[:,:-1] # all except y
@@ -262,17 +264,18 @@ if (__name__ == '__main__'):
                     try:
                         train_X, train_Y = sampler.sample_median_size(train_X, train_Y, max_size=10000)
                     except Exception as ex:
-                        print(f"### Failed median sampling for {layer_name}: {ex}")
+                        print(f'### failed median sampling for {layer_name} - {reference_layer_name}: {ex}')
                         continue # dont train with full dataset fold
-                        
+
                     pca = PCA(n_components=8)
                     train_Xp = pca.fit_transform(train_X)
                     test_Xp = pca.transform(test_X)
 
-                    run() # for layer for fold
-
-                print(f"Exporting result for {layer_name}")
-                export_report(layer_name)
+                    run() # for layer combination for fold
+                
+                print(f"Exporting result for {layer_name} - {reference_layer_name}")
+                export_report(layer_name, reference_layer_name)
 
             except Exception as e:
                 print('### Exception occured:', e)
+            
