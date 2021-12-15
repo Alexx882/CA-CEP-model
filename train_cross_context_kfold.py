@@ -93,18 +93,22 @@ def export_model(model, model_name):
 
 
 def run():
-    # from sklearn.naive_bayes import GaussianNB
-    # priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
-    # priors = np.array([1,1]) / (1+1)
-    # smoothing = 1E-9
+    from sklearn.naive_bayes import GaussianNB
+    if len(train_Y.unique()) == 5:
+        priors = np.array([8,2,2,1,1]) / (8+2+2+1+1)
+    elif len(train_Y.unique()) == 2:
+        priors = np.array([1,1]) / (1+1)
+    else:
+        raise Exception(f"Apriori distribution for {len(train_Y.unique())} classes not known.")
+    smoothing = 1E-9
 
-    # clf = GaussianNB(priors=priors, var_smoothing=smoothing)
-    # clf.fit(train_X, train_Y)
+    clf = GaussianNB(priors=priors, var_smoothing=smoothing)
+    clf.fit(train_X, train_Y)
 
-    # clf_p = GaussianNB(priors=priors, var_smoothing=smoothing)
-    # clf_p.fit(train_Xp, train_Y)
+    clf_p = GaussianNB(priors=priors, var_smoothing=smoothing)
+    clf_p.fit(train_Xp, train_Y)
 
-    # print_report([clf, clf_p], [test_X, test_Xp], test_Y, ["nb X", "nb Xp"])
+    print_report([clf, clf_p], [test_X, test_Xp], test_Y, ["nb X", "nb Xp"])
 
     # export_model(clf, 'nb_x')
     # export_model(clf_p, 'nb_xp')
@@ -210,7 +214,8 @@ def run():
 
 if (__name__ == '__main__'):
 
-    datasets = {'youtube':[
+    datasets = {
+        'youtube':[
         # ('CategoryLayer', 'CountryLayer'),
         # ('ViewsLayer', 'CountryLayer'),
 
