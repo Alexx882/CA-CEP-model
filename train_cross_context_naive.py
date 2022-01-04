@@ -60,12 +60,13 @@ import random
 
 import sklearn.metrics
 
+
 def show_majority_class_prediction():
     # print("### Majority Class Prediction: ###")
 
     majority_class_train = mode(Y_train)
     majority_class_test = mode(Y_test)
-    # print(f"Training majority class = {majority_class_train}, Test majority class = {majority_class_test}") 
+    print(f"Training majority class = {majority_class_train}, Test majority class = {majority_class_test}") 
     
     pred_Y = [majority_class_train] * len(Y_test) 
 
@@ -73,6 +74,7 @@ def show_majority_class_prediction():
     if key not in repeated_result:
         repeated_result[key] = RepeatedTrainingResult()
     repeated_result[key].add_classification_report(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y, output_dict=True))
+    print(sklearn.metrics.classification_report(y_true=Y_test, y_pred=pred_Y))
 
     
 def show_random_prediction():
